@@ -1,0 +1,1440 @@
+import os
+import sys
+import numpy as np
+import pandas as pd
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QMessageBox, QTableWidgetItem,
+    QHeaderView, QFileDialog, QMenu, QColorDialog, QVBoxLayout, QDialog, QPushButton, QWidget, QSizePolicy
+)
+from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtGui import QAction, QColor, QPixmap, QIcon, QClipboard
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+import matplotlib.patches as patches
+import scipy.interpolate as interp
+import json
+import matplotlib.ticker as ticker
+import warnings
+import colour
+from colour.plotting.diagrams import plot_chromaticity_diagram_colours
+from colour.plotting import plot_RGB_colourspaces_in_chromaticity_diagram_CIE1931
+
+from ui_form import Ui_MainWindow
+from import_dialog import ImportDialog
+from export_dialog import ExportDialog
+from plot_dialog import PlotDialog
+from settings_dialog import SettingsDialog
+from about_dialog import AboutDialog
+from reflectance_data_dialog import ReflectanceDataDialog
+from color_calculator import ColorCalculator
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+        
+        # 设置窗口标题
+        self.setWindowTitle("Aleksameter App")
+        
+        # 初始化颜色计算器
+        self.color_calculator = ColorCalculator()
+        
+        # 加载设置
+        self.settings = {
+            'general': {
+                'rho_lambda': 0.989,  # 默认值为0.989，与MATLAB一致
+                'gamut': 'sRGB',
+                'illuminant': 'D65',
+                'rgb_values': '0 ... 255',
+                'language': 'English'
+            },
+            'import': {
+                'default_directory': os.path.expanduser('~'),
+                'auto_preview': True,
+                'max_preview_files': 5
+            },
+            'plot': {
+                'reflectance_color': '#1f77b4',
+                'grid': True,
+                'legend': True,
+                'dpi': 300,
+                'reflectance_width': 800,
+                'reflectance_height': 600,
+                'cie_width': 600,
+                'cie_height': 600,
+                'reflectance_title': 'Reflectance',
+                'cie_title': 'CIE 1931 Chromaticity Diagram',
+                'reflectance_show_title': True,
+                'cie_show_title': True,
+                'reflectance_show_legend': True,
+                'cie_show_legend': True
+            },
+            'export': {
+                'default_directory': os.path.expanduser('~'),
+                'default_format': 'xlsx',
+                'include_header': True,
+                'decimal_places': 6,
+                'separator': 'Comma',
+                'copy_header': 'Yes'
+            }
+        }
+        
+        # 加载设置
+        self.load_settings()
+        
+        # 初始化数据存储
+        self.reset_data()
+        
+        # 初始化界面
+        self.setup_ui()
+        
+        # 绑定菜单动作
+        self.connect_menu_actions()
+        
+        # 绑定按钮事件
+        self.connect_button_actions()
+        
+        # 窗口大小改变时自动调整表格
+        self.resizeEvent = self.on_window_resize
+        
+        print("应用程序已初始化")
+    
+    def reset_data(self):
+        """重置数据存储"""
+        self.data = {
+            'wavelengths': self.color_calculator.wavelengths,
+            'original_wavelengths': None,  # 用于存储原始测量的波长数据（通常是1nm间隔）
+            'reflectance': {},
+            'results': [],
+            'file_names': []
+        }
+        
+        # 重置图表
+        if hasattr(self, 'reflectance_canvas'):
+            self.update_reflectance_plot()
+        if hasattr(self, 'cie_canvas'):
+            self.update_cie_plot()
+        
+        # 清空结果表格
+        if hasattr(self, 'ui') and hasattr(self.ui, 'table_results'):
+            self.ui.table_results.setRowCount(0)
+    
+    def setup_ui(self):
+        """设置UI组件"""
+        # 设置反射率图表
+        self.setup_reflectance_plot()
+        
+        # 设置CIE图表
+        self.setup_cie_plot()
+        
+        # 设置结果表格
+        self.setup_results_table()
+    
+    def setup_reflectance_plot(self):
+        """设置反射率图表"""
+        # 创建图表 - 使用更宽的宽高比
+        self.reflectance_figure = Figure(figsize=(7, 4.3), dpi=100)
+        self.reflectance_canvas = FigureCanvas(self.reflectance_figure)
+        # 移除工具栏，用户不需要这个功能
+        # self.reflectance_toolbar = NavigationToolbar(self.reflectance_canvas, self)
+        
+        # 为X轴标签预留足够空间，减少左右边距使图表更宽
+        self.reflectance_figure.subplots_adjust(bottom=0.2, left=0.08, right=0.95)
+        
+        # 创建布局并添加到view_Reflections，使其占满整个widget
+        self.reflectance_layout = QVBoxLayout(self.ui.view_Reflections)
+        self.reflectance_layout.setContentsMargins(0, 0, 0, 0)  # 移除布局边距
+        self.reflectance_layout.setSpacing(0)  # 移除元素间距
+        # 不再添加工具栏
+        # self.reflectance_layout.addWidget(self.reflectance_toolbar)
+        self.reflectance_layout.addWidget(self.reflectance_canvas)
+        
+        # 设置画布的尺寸策略，使其扩展填充可用空间
+        self.reflectance_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 初始绘图
+        self.update_reflectance_plot()
+    
+    def setup_cie_plot(self):
+        """设置CIE图表"""
+        # 创建图表
+        self.cie_figure = Figure(figsize=(4, 4), dpi=100)
+        self.cie_canvas = FigureCanvas(self.cie_figure)
+        # 移除导航工具栏
+        # self.cie_toolbar = NavigationToolbar(self.cie_canvas, self)
+        
+        # 创建布局并添加到view_colorSpace - 移除边距以更好地利用空间
+        self.cie_layout = QVBoxLayout(self.ui.view_colorSpace)
+        self.cie_layout.setContentsMargins(0, 0, 0, 0)  # 设置边距为0
+        self.cie_layout.setSpacing(0)  # 设置组件间距为0
+        # self.cie_layout.addWidget(self.cie_toolbar)  # 不再添加导航工具栏
+        self.cie_layout.addWidget(self.cie_canvas)
+        
+        # 设置画布随widget大小自适应
+        self.cie_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 初始绘图
+        self.update_cie_plot()
+        
+        # 监听尺寸变化事件，用于调整图表
+        self.cie_canvas.mpl_connect('resize_event', self._on_cie_resize)
+    
+    def _on_cie_resize(self, event):
+        """处理CIE图表大小变化事件"""
+        # 调整图表布局，确保标签可见
+        self.cie_figure.tight_layout(pad=0.4)
+        # 重新绘制
+        self.cie_canvas.draw_idle()
+    
+    def setup_results_table(self):
+        """设置结果表格"""
+        # 设置表头
+        self.ui.table_results.setColumnCount(5)
+        self.ui.table_results.setHorizontalHeaderLabels([
+            "File Name", "x", "y", "sRGB Linear", "sRGB Gamma"
+        ])
+        
+        # 获取表头
+        header = self.ui.table_results.horizontalHeader()
+        
+        # 设置列的调整模式
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)  # 文件名列
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)  # x列
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)  # y列
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)  # sRGB Linear列
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)  # sRGB Gamma列
+        
+        # 设置初始列宽 - 适应更大的字体
+        self.ui.table_results.setColumnWidth(0, 130)  # 文件名列
+        self.ui.table_results.setColumnWidth(1, 70)   # x列
+        self.ui.table_results.setColumnWidth(2, 70)   # y列
+        self.ui.table_results.setColumnWidth(3, 150)  # sRGB Linear列
+        self.ui.table_results.setColumnWidth(4, 150)  # sRGB Gamma列
+        
+        # 设置行高
+        self.ui.table_results.verticalHeader().setDefaultSectionSize(22)  # 调整行高为22像素
+        self.ui.table_results.verticalHeader().setVisible(False)  # 隐藏垂直表头
+        
+        # 设置表格样式
+        self.ui.table_results.setStyleSheet("""
+            QTableWidget {
+                gridline-color: #d0d0d0;
+                font-size: 10pt;
+            }
+            QHeaderView::section {
+                background-color: #f0f0f0;
+                padding: 3px;
+                font-size: 10pt;
+                border: 1px solid #d0d0d0;
+            }
+            QTableWidget::item {
+                padding: 3px;
+            }
+        """)
+        
+        # 设置表格属性
+        self.ui.table_results.setAlternatingRowColors(True)
+        self.ui.table_results.setSortingEnabled(True)
+        self.ui.table_results.setSelectionBehavior(self.ui.table_results.SelectionBehavior.SelectRows)
+        
+        # 设置初始列宽调整
+        QTimer.singleShot(100, self.adjust_table_columns)
+    
+    def connect_menu_actions(self):
+        """连接菜单动作"""
+        # File菜单
+        self.ui.actionImport.triggered.connect(self.open_import_dialog)
+        self.ui.actionExport.triggered.connect(self.open_export_dialog)
+        self.ui.actionPlot.triggered.connect(self.open_plot_dialog)
+        self.ui.actionSettings.triggered.connect(self.open_settings_dialog)
+        
+        # 确保在macOS下正确显示Settings菜单项
+        self.ui.actionSettings.setMenuRole(QAction.MenuRole.NoRole)
+        
+        # Edit菜单
+        self.ui.actionCopy_all_data.triggered.connect(self.copy_all_data)
+        self.ui.actionClear.triggered.connect(self.clear_data)
+        
+        # 创建光源子菜单
+        illuminant_menu = QMenu("Illuminant", self)
+        self.ui.menu_edit.addMenu(illuminant_menu)
+        
+        # 添加光源选项
+        self.illuminant_actions = {}
+        for illuminant in ['D65', 'D50', 'A', 'E']:  # 添加 'E' 光源
+            action = QAction(illuminant, self)
+            action.setCheckable(True)
+            action.setData(illuminant)
+            if illuminant == self.settings['general']['illuminant']:
+                action.setChecked(True)
+            action.triggered.connect(self.change_illuminant)
+            illuminant_menu.addAction(action)
+            self.illuminant_actions[illuminant] = action
+        
+        # 创建Gamut子菜单
+        gamut_menu = QMenu("Gamut", self)
+        self.ui.menu_edit.addMenu(gamut_menu)
+        
+        # 添加Gamut选项
+        self.gamut_actions = {}
+        for gamut in ['sRGB', 'Adobe RGB', 'ProPhoto RGB', 'DCI-P3']:
+            action = QAction(gamut, self)
+            action.setCheckable(True)
+            action.setData(gamut)
+            if gamut == self.settings['general']['gamut']:
+                action.setChecked(True)
+            action.triggered.connect(self.change_gamut)
+            gamut_menu.addAction(action)
+            self.gamut_actions[gamut] = action
+        
+        # Help菜单
+        self.ui.actionAbout.triggered.connect(self.open_about_dialog)
+        self.ui.actionManual.triggered.connect(self.open_manual)
+    
+    def connect_button_actions(self):
+        """连接按钮事件"""
+        self.ui.pushButton_show_Reflections_Data.clicked.connect(self.show_reflectance_data)
+        self.ui.pushButton_copydata.clicked.connect(self.copy_table_data)
+    
+    def load_settings(self):
+        """加载设置"""
+        try:
+            settings_file = "app_settings.json"
+            
+            # 检查文件是否存在且不为空
+            if os.path.exists(settings_file) and os.path.getsize(settings_file) > 0:
+                with open(settings_file, 'r') as f:
+                    loaded_settings = json.loads(f.read())
+                # 更新设置
+                for category in loaded_settings:
+                    if category in self.settings:
+                        self.settings[category].update(loaded_settings[category])
+                print(f"设置已从 {settings_file} 加载")
+            else:
+                print(f"设置文件 {settings_file} 不存在或为空，使用默认设置")
+                # 创建默认设置文件
+                self.save_settings()
+        except Exception as e:
+            print(f"Error loading settings: {str(e)}")
+            # 创建默认设置文件
+            self.save_settings()
+    
+    def save_settings(self):
+        """保存设置"""
+        try:
+            settings_file = "app_settings.json"
+            with open(settings_file, 'w') as f:
+                f.write(json.dumps(self.settings, indent=4))
+            print(f"设置已保存到 {settings_file}")
+        except Exception as e:
+            print(f"Error saving settings: {str(e)}")
+
+    def open_import_dialog(self):
+        """打开导入对话框"""
+        dialog = ImportDialog(self)
+        result = dialog.exec()
+        
+        print(f"Import dialog result: {result}")
+        
+        # 在PySide6中，QDialog.Accepted值为1
+        if result == 1:  # QDialog.Accepted
+            # 获取导入数据
+            import_data = dialog.get_selected_data()
+            
+            # 处理数据
+            self.process_imported_data(import_data)
+            
+            # 显示日志消息
+            print(f"Import dialog accepted, processing data...")
+        else:
+            print("Import dialog cancelled")
+            
+    def process_imported_data(self, import_data):
+        """处理导入的数据"""
+        if not import_data or not 'mode' in import_data:
+            print("导入数据无效，未包含处理模式")
+            QMessageBox.warning(self, "警告", "导入的数据无效，请重试。")
+            return
+        
+        mode = import_data['mode']
+        black_reference_path = import_data.get('black_reference', '')
+        white_reference_path = import_data.get('white_reference', '')
+        measurement_paths = import_data.get('measurements', [])
+        
+        print(f"\n====== 处理导入数据 ======")
+        print(f"模式: {mode}")
+        print(f"黑参考文件: {black_reference_path}")
+        print(f"白参考文件: {white_reference_path}")
+        print(f"测量文件数量: {len(measurement_paths)}")
+        
+        if not measurement_paths:
+            QMessageBox.warning(self, "警告", "未选择测量文件。")
+            return
+        
+        # 重置数据
+        self.reset_data()
+        
+        # 设置rho_lambda值从settings中获取
+        rho_lambda = self.settings['general']['rho_lambda']
+        self.color_calculator.set_rho_lambda(rho_lambda)
+        print(f"设置rho_lambda值为: {rho_lambda}")
+        
+        # 设置校准模式
+        if mode == "Aleksameter" and black_reference_path and white_reference_path:
+            print(f"Aleksameter模式: 使用黑白参考校准")
+            
+            # 加载黑白参考数据
+            black_ref = self.load_data_from_file(black_reference_path)
+            white_ref = self.load_data_from_file(white_reference_path)
+            
+            if black_ref is None or white_ref is None:
+                error_msg = "无法加载参考文件。"
+                print(f"错误: {error_msg}")
+                QMessageBox.warning(self, "警告", error_msg)
+                return
+                
+            # 检查参考数据是否有效
+            if 'wavelengths' not in black_ref or 'values' not in black_ref or 'wavelengths' not in white_ref or 'values' not in white_ref:
+                error_msg = "参考文件格式无效。"
+                print(f"错误: {error_msg}")
+                QMessageBox.warning(self, "警告", error_msg)
+                return
+                
+            # 设置校准模式
+            print("设置校准模式...")
+            self.color_calculator.set_calibration_mode(True, black_ref['values'], white_ref['values'])
+        else:
+            # Generic模式，不使用校准
+            print(f"Generic模式: 不使用校准")
+            self.color_calculator.set_calibration_mode(False)
+        
+        # 加载测量数据
+        measurements = []
+        for path in measurement_paths:
+            try:
+                print(f"加载测量文件: {os.path.basename(path)}")
+                # 从文件加载数据
+                data = self.load_data_from_file(path)
+                
+                if data is None:
+                    print(f"  错误: 无法加载文件 {path}")
+                    continue
+                    
+                if 'wavelengths' not in data or 'values' not in data:
+                    print(f"  错误: 文件格式无效 {path}")
+                    continue
+                
+                print(f"  成功加载: {len(data['wavelengths'])}个数据点, 范围: {min(data['wavelengths']):.1f}-{max(data['wavelengths']):.1f} nm")
+                measurements.append(data)
+                self.data['file_names'].append(os.path.basename(path))
+            except Exception as e:
+                error_msg = f"加载文件 {path} 时出错: {str(e)}"
+                print(f"错误: {error_msg}")
+                QMessageBox.warning(self, "警告", error_msg)
+        
+        if not measurements:
+            QMessageBox.warning(self, "警告", "无有效的测量文件。")
+            return
+        
+        print(f"处理 {len(measurements)} 个测量文件...")
+        
+        # 处理每个测量数据
+        for i, measurement in enumerate(measurements):
+            try:
+                file_name = self.data['file_names'][i]
+                wavelengths = measurement['wavelengths']
+                values = measurement['values']
+                
+                # 保存第一个测量的原始波长数据
+                if i == 0 and wavelengths is not None and len(wavelengths) > 0:
+                    self.data['original_wavelengths'] = np.array(wavelengths)
+                    print(f"保存原始波长数据: 范围={min(wavelengths):.1f}-{max(wavelengths):.1f} nm, "
+                          f"点数={len(wavelengths)}, 步长={wavelengths[1]-wavelengths[0]:.1f}nm")
+                
+                print(f"\n处理第 {i+1}/{len(measurements)} 个测量: {file_name}")
+                print(f"  波长范围: {min(wavelengths):.1f}-{max(wavelengths):.1f} nm")
+                print(f"  数据点数: {len(wavelengths)}")
+                
+                # 计算颜色参数
+                result = self.color_calculator.process_measurement(values, wavelengths)
+                
+                if result is None:
+                    print(f"  错误: 处理失败，未返回结果")
+                    continue
+                
+                # 存储反射率数据
+                if 'reflectance' in result:
+                    # 保存完整的结果字典，包含原始步长和1nm步长的数据
+                    self.data['reflectance'][file_name] = result
+                else:
+                    print(f"  警告: 结果中未包含反射率数据")
+                
+                # 存储结果
+                if 'xy' in result and 'rgb_linear' in result and 'rgb_gamma' in result and 'hex_color' in result:
+                    self.data['results'].append({
+                        'file_name': file_name,
+                        'x': result['xy'][0],
+                        'y': result['xy'][1],
+                        'rgb_linear': result['rgb_linear'],
+                        'rgb_gamma': result['rgb_gamma'],
+                        'hex_color': result['hex_color']
+                    })
+                    
+                    print(f"  计算结果: xy坐标=({result['xy'][0]:.4f}, {result['xy'][1]:.4f}), 颜色={result['hex_color']}")
+                else:
+                    print(f"  警告: 结果中缺少必要的颜色数据")
+            
+            except Exception as e:
+                error_msg = f"处理文件 {file_name} 时出错: {str(e)}"
+                print(f"错误: {error_msg}")
+                import traceback
+                traceback.print_exc()
+                QMessageBox.warning(self, "错误", error_msg)
+        
+        if not self.data['results']:
+            QMessageBox.warning(self, "警告", "无法计算任何结果。")
+            return
+            
+        # 更新界面
+        print("更新界面...")
+        try:
+            self.update_reflectance_plot()
+            self.update_cie_plot()
+            self.update_results_table()
+            
+            # 显示成功消息
+            QMessageBox.information(self, "导入完成", 
+                                f"成功处理 {len(self.data['results'])}/{len(measurements)} 个测量文件。")
+        except Exception as e:
+            error_msg = f"更新界面时出错: {str(e)}"
+            print(f"错误: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            QMessageBox.warning(self, "错误", error_msg)
+    
+    def load_data_from_file(self, file_path):
+        """从文件加载数据"""
+        try:
+            # 根据文件扩展名选择不同的加载方法
+            ext = os.path.splitext(file_path)[1].lower()
+            
+            # 处理CSV文件（专门针对示例中的格式）
+            if ext == '.csv':
+                print(f"正在加载CSV文件: {file_path}")
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                
+                # 查找数据部分开始的位置
+                data_start_index = -1
+                for i, line in enumerate(lines):
+                    if line.startswith("Wavelength [nm],"):
+                        data_start_index = i + 1
+                        break
+                
+                if data_start_index >= 0:
+                    print(f"在第{data_start_index}行找到数据部分")
+                    # 提取数据
+                    wavelengths = []
+                    values = []
+                    for line in lines[data_start_index:]:
+                        parts = line.strip().split(',')
+                        if len(parts) >= 2 and parts[0] and parts[1]:
+                            try:
+                                wavelength = float(parts[0])
+                                value = float(parts[1])
+                                wavelengths.append(wavelength)
+                                values.append(value)
+                            except ValueError:
+                                continue
+                    
+                    if wavelengths and values:
+                        wavelengths_np = np.array(wavelengths)
+                        values_np = np.array(values)
+                        
+                        # 打印波长信息
+                        if len(wavelengths) > 1:
+                            step = wavelengths[1] - wavelengths[0]
+                            print(f"提取了{len(wavelengths)}个数据点")
+                            print(f"波长范围: {wavelengths[0]}-{wavelengths[-1]}nm, 步长: {step}nm")
+                            
+                            # 检查波长是否均匀
+                            diff = np.diff(wavelengths_np)
+                            if not np.allclose(diff, step, rtol=1e-3):
+                                print("警告: 波长步长不均匀！")
+                                print(f"最小步长: {np.min(diff)}nm, 最大步长: {np.max(diff)}nm")
+                            
+                            # 检查数值范围
+                            print(f"数值范围: {np.min(values_np)}-{np.max(values_np)}")
+                        
+                        return {
+                            'wavelengths': wavelengths_np,
+                            'values': values_np
+                        }
+                
+                # 如果上述解析失败，尝试常规CSV解析
+                print("尝试常规CSV解析方法...")
+                try:
+                    data = np.genfromtxt(file_path, delimiter=',', skip_header=1, names=True)
+                    if data.size > 0:
+                        # 尝试找到波长和值的列
+                        col_names = data.dtype.names
+                        wavelength_col = None
+                        value_col = None
+                        
+                        # 尝试匹配列名
+                        for col in col_names:
+                            col_lower = col.lower()
+                            if 'wave' in col_lower or 'lambda' in col_lower or 'nm' in col_lower:
+                                wavelength_col = col
+                            elif 'value' in col_lower or 'reflectance' in col_lower or 'intensity' in col_lower:
+                                value_col = col
+                        
+                        # 如果找不到合适的列名，使用前两列
+                        if wavelength_col is None and len(col_names) > 0:
+                            wavelength_col = col_names[0]
+                        if value_col is None and len(col_names) > 1:
+                            value_col = col_names[1]
+                        
+                        if wavelength_col and value_col:
+                            wavelengths_np = data[wavelength_col]
+                            values_np = data[value_col]
+                            
+                            # 打印波长信息
+                            if len(wavelengths_np) > 1:
+                                step = wavelengths_np[1] - wavelengths_np[0]
+                                print(f"使用列 '{wavelength_col}' 和 '{value_col}'")
+                                print(f"波长范围: {wavelengths_np[0]}-{wavelengths_np[-1]}nm, 步长: {step}nm")
+                                print(f"数值范围: {np.min(values_np)}-{np.max(values_np)}")
+                            
+                            return {
+                                'wavelengths': wavelengths_np,
+                                'values': values_np
+                            }
+                except Exception as e:
+                    print(f"常规CSV解析失败: {e}")
+            
+            # 如果是其他文件类型，或CSV解析失败
+            print(f"不支持的文件类型: {ext}")
+            return None
+            
+        except Exception as e:
+            print(f"加载文件时出错: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def update_reflectance_plot(self):
+        """更新反射率图表"""
+        # 清除图表
+        self.reflectance_figure.clear()
+        
+        # 创建子图
+        ax = self.reflectance_figure.add_subplot(111)
+        
+        # 设置基本属性
+        ax.set_title("Reflectance Spectra of Measured Samples", fontsize=9)
+        ax.set_xlabel("Wavelength (nm)", fontsize=8)
+        ax.set_ylabel("$\\rho$", fontsize=8)
+        ax.tick_params(axis='both', which='major', labelsize=7)
+        
+        # 设置轴范围
+        ax.set_xlim(380, 780)
+        ax.set_ylim(0, 1.05)
+        
+        # 设置固定的刻度位置，包括50nm间隔和边缘值
+        tick_positions = [380, 400, 450, 500, 550, 600, 650, 700, 750, 780]
+        ax.xaxis.set_major_locator(ticker.FixedLocator(tick_positions))
+        
+        # 启用网格
+        ax.grid(True, linestyle='--', alpha=0.7)
+        
+        # 检查是否有数据可以绘制
+        if self.data['reflectance']:
+            max_reflectance = 0
+            
+            # 绘制反射率数据
+            for file_name, result_data in self.data['reflectance'].items():
+                # 获取波长和反射率数据
+                if 'reflectance_1nm' in result_data and 'wavelengths_1nm' in result_data:
+                    wavelengths = result_data['wavelengths_1nm']
+                    reflectance = result_data['reflectance_1nm']
+                else:
+                    wavelengths = result_data['wavelengths'] if 'wavelengths' in result_data else self.data['wavelengths']
+                    reflectance = result_data['reflectance']
+                
+                # 更新最大反射率值
+                if len(reflectance) > 0:
+                    max_reflectance = max(max_reflectance, np.max(reflectance))
+                
+                # 处理数据长度不匹配
+                if len(wavelengths) != len(reflectance):
+                    try:
+                        # 进行插值
+                        source_wavelengths = np.linspace(wavelengths[0], wavelengths[-1], len(reflectance))
+                        interp_func = interp.interp1d(source_wavelengths, reflectance, bounds_error=False, fill_value="extrapolate")
+                        reflectance = interp_func(wavelengths)
+                    except Exception as e:
+                        print(f"插值失败: {e}")
+                        continue
+                
+                # 绘制曲线
+                ax.plot(wavelengths, reflectance, label=file_name)
+            
+            # 调整Y轴范围（如果有值大于1.0）
+            if max_reflectance > 1.0:
+                ax.set_ylim(0, max_reflectance * 1.05)
+            
+            # 添加图例（如果有多条曲线）
+            if len(self.data['reflectance']) > 1:
+                ax.legend(fontsize=7)
+        
+        # 调整底部边距，确保X轴标签显示
+        self.reflectance_figure.subplots_adjust(bottom=0.2)
+        
+        # 刷新图表
+        self.reflectance_canvas.draw()
+    
+    def update_cie_plot(self):
+        """更新CIE图表，使用colour库绘制带颜色的色度图"""
+        # 清除图表
+        self.cie_figure.clear()
+        
+        # 创建子图
+        ax = self.cie_figure.add_subplot(111)
+        
+        # 设置默认字体大小
+        tick_size = 8
+        label_size = 9
+        wavelength_label_size = 6  # 波长标签使用更小的字体
+        
+        # 检查是否有数据可以绘制
+        has_data = len(self.data['results']) > 0
+        
+        # 启用轴线背景设置，确保网格在所有元素后面
+        ax.set_axisbelow(True)
+        
+        try:
+            # 禁用警告消息
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # 首先绘制色度图的彩色背景
+                plot_chromaticity_diagram_colours(
+                    axes=ax,
+                    diagram_colours="RGB",  # 使用RGB颜色
+                    method="CIE 1931",  # 使用CIE 1931方法
+                    standalone=False,  # 不独立绘图
+                    title=False,  # 不使用默认标题
+                    bounding_box=(0, 0.8, 0, 0.9)  # 与原设置一致
+                )
+                
+                # 获取光谱轨迹线的数据点
+                cmfs = colour.colorimetry.MSDS_CMFS['CIE 1931 2 Degree Standard Observer']
+                XYZ = cmfs.values
+                xy = colour.XYZ_to_xy(XYZ)
+                wavelengths = cmfs.wavelengths
+                
+                # 创建波长到坐标的映射
+                wavelength_dict = {wl: (x, y) for wl, (x, y) in zip(wavelengths, xy)}
+                
+                # 定义我们想要标记的波长范围（460-620nm，每20nm一个标记）
+                custom_wavelength_labels = list(range(460, 640, 20))
+                
+                # 创建平滑的边界线 - 使用更多的点插值以获得更平滑的效果
+                # 使用scipy的插值方法
+                from scipy.interpolate import interp1d
+                
+                # 创建闭合的光谱轨迹点列表（首尾相连）
+                # 光谱轨迹线
+                x_locus = np.append(xy[..., 0], xy[0, 0])
+                y_locus = np.append(xy[..., 1], xy[0, 1])
+                
+                # 创建参数化的坐标，用于插值
+                t = np.linspace(0, 1, len(x_locus))
+                
+                # 创建插值函数
+                fx = interp1d(t, x_locus, kind='cubic')
+                fy = interp1d(t, y_locus, kind='cubic')
+                
+                # 生成更密集的点进行插值，使曲线更平滑
+                t_new = np.linspace(0, 1, 1000)
+                x_smooth = fx(t_new)
+                y_smooth = fy(t_new)
+                
+                # 使用高zorder绘制平滑的光谱边界线
+                ax.plot(
+                    x_smooth, 
+                    y_smooth, 
+                    color='black', 
+                    linewidth=1.0,
+                    solid_capstyle='round',
+                    zorder=10
+                )
+                
+                # 紫色线 - 连接最高和最低波长的点
+                purple_line = np.vstack([
+                    [xy[-1, 0], xy[-1, 1]],  # 最高波长点
+                    [xy[0, 0], xy[0, 1]]      # 最低波长点
+                ])
+                
+                # 使用虚线绘制紫色线
+                ax.plot(
+                    purple_line[:, 0], 
+                    purple_line[:, 1], 
+                    color='black', 
+                    linewidth=1.0,
+                    linestyle='--',
+                    zorder=10
+                )
+                
+                # 手动绘制色域，确保使用细黑线
+                gamut = self.settings['general']['gamut']
+                
+                # 绘制色域边界 - 根据选择的色域定义相应顶点
+                if gamut == 'sRGB':
+                    # sRGB色域顶点
+                    r = (0.64, 0.33)
+                    g = (0.30, 0.60)
+                    b = (0.15, 0.06)
+                elif gamut == 'Adobe RGB':
+                    # Adobe RGB色域顶点
+                    r = (0.64, 0.33)
+                    g = (0.21, 0.71)
+                    b = (0.15, 0.06)
+                elif gamut == 'ProPhoto RGB':
+                    # ProPhoto RGB色域顶点
+                    r = (0.7347, 0.2653)
+                    g = (0.1596, 0.8404)
+                    b = (0.0366, 0.0001)
+                elif gamut == 'DCI-P3':
+                    # DCI-P3色域顶点
+                    r = (0.68, 0.32)
+                    g = (0.265, 0.69)
+                    b = (0.15, 0.06)
+                else:
+                    # 默认使用sRGB
+                    r = (0.64, 0.33)
+                    g = (0.30, 0.60)
+                    b = (0.15, 0.06)
+                
+                # 创建闭合多边形的点列表
+                x_points = [r[0], g[0], b[0], r[0]]
+                y_points = [r[1], g[1], b[1], r[1]]
+                
+                # 使用黑色细线绘制色域边界，zorder设置为30以确保在最上层
+                ax.plot(x_points, y_points, '-', color='black', linewidth=1.0, 
+                       zorder=30, label=gamut)
+                
+                # 获取图例对象并设置较小的字体大小
+                legend = ax.get_legend()
+                if legend is not None:
+                    # 设置图例字体更小
+                    for text in legend.get_texts():
+                        text.set_fontsize(6)  # 使用更小的字体
+                    # 减小图例框大小
+                    legend.set_frame_on(True)
+                    legend.set_title('')  # 移除图例标题
+                    # 移动图例到右上角并减小外边距
+                    legend._loc = 1  # 1 表示右上角
+                    legend.set_bbox_to_anchor((1.0, 1.0))
+                    # 调整图例大小
+                    legend._legend_box.align = "right"
+                
+                # 在图例不存在时创建图例
+                if legend is None:
+                    ax.legend(fontsize=6, loc='upper right', frameon=True,
+                            bbox_to_anchor=(1.0, 1.0))
+                
+                # 绘制当前使用的光源点
+                illuminant = self.settings['general']['illuminant']
+                
+                # 常见光源的xy坐标
+                illuminant_coords = {
+                    'D65': (0.3128, 0.3290),
+                    'D50': (0.3457, 0.3585),
+                    'A': (0.4476, 0.4074),
+                    'E': (1/3, 1/3)  # 等能光源在(1/3, 1/3)
+                }
+                
+                # 移除所有可能遗留的标记点和文本标注（保留这部分代码）
+                for child in ax.get_children():
+                    # 移除文本标注（波长数字）
+                    if hasattr(child, 'get_text') and child.get_text() and child.get_text().isdigit():
+                        child.remove()
+                    # 移除点标记，但不包括数据点
+                    if hasattr(child, 'get_marker') and child.get_marker() not in [None, 'None', ''] and child.get_zorder() < 30:
+                        child.remove()
+                
+                # 在移除标记点之后绘制光源点
+                if illuminant in illuminant_coords:
+                    # 获取光源坐标
+                    x_illum, y_illum = illuminant_coords[illuminant]
+                    
+                    # 绘制光源点，使用小空心黑点
+                    ax.plot(x_illum, y_illum, 'o', color='black', markersize=4, markerfacecolor='none', markeredgewidth=0.8, zorder=50)
+                    
+                    # 在光源点右上方添加标注，使用透明背景
+                    ax.annotate(
+                        f"{illuminant}",
+                        (x_illum + 0.02, y_illum + 0.02),  # 偏移量确保标注在点的右上方
+                        fontsize=wavelength_label_size,  # 与波长标签一样的字体大小
+                        color='black',
+                        ha='left',  # 左对齐
+                        va='bottom',  # 底对齐
+                        zorder=50
+                    )
+                
+                # 在CIE边界上添加460-620nm的波长标记，确保小巧美观
+                for wl in custom_wavelength_labels:
+                    if wl in wavelength_dict:
+                        x, y = wavelength_dict[wl]
+                        
+                        # 获取点位置与中心点(1/3, 1/3)的方向向量
+                        center = np.array([1/3, 1/3])
+                        point = np.array([x, y])
+                        direction = point - center
+                        
+                        # 标准化方向向量并延长
+                        direction = direction / np.linalg.norm(direction)
+                        
+                        # 为特定波长调整偏移量
+                        if wl == 460:
+                            # 对于460nm，向左上方移动以避免超出边界
+                            offset = np.array([-0.02, 0.02])
+                        elif wl == 540:
+                            # 对于540nm，向右上方移动更多
+                            offset = np.array([0.07, 0.03])
+                        elif wl == 620:
+                            # 对于620nm，更多向右上方移动
+                            offset = np.array([0.03, 0.05])
+                        else:
+                            # 其他波长使用标准偏移量
+                            offset = direction * 0.015
+                        
+                        # 绘制小点
+                        ax.plot(x, y, 'o', color='black', markersize=2, zorder=15)
+                        
+                        # 确定文本对齐方式
+                        h_align = 'left' if direction[0] > 0 else 'right'
+                        v_align = 'bottom' if direction[1] > 0 else 'top'
+                        
+                        # 添加波长标签，字体更小
+                        ax.annotate(
+                            f"{wl}",
+                            (x + offset[0], y + offset[1]),
+                            fontsize=wavelength_label_size,
+                            color='black',
+                            ha=h_align,
+                            va=v_align,
+                            zorder=15,
+                            bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.1')
+                        )
+                
+        except Exception as e:
+            # 如果colour库绘制失败，回退到原始方法
+            print(f"Colour库绘制失败，回退到原始方法: {e}")
+            self.draw_cie_boundary(ax)
+        
+        # 设置标题和轴标签
+        ax.set_title("CIE 1931 Chromaticity Diagram", fontsize=label_size)
+        ax.set_xlabel("x", fontsize=label_size)
+        ax.set_ylabel("y", fontsize=label_size)
+        
+        # 设置轴范围
+        ax.set_xlim(0, 0.8)
+        ax.set_ylim(0, 0.9)
+        
+        # 确保坐标轴显示刻度（不论是否有数据）
+        # X轴刻度
+        ax.set_xticks(np.arange(0, 0.9, 0.1))
+        ax.tick_params(axis='x', which='major', labelsize=tick_size)
+        
+        # Y轴刻度
+        ax.set_yticks(np.arange(0, 1.0, 0.1))
+        ax.tick_params(axis='y', which='major', labelsize=tick_size)
+        
+        # 始终禁用网格，不考虑设置中的grid_enabled值
+        ax.grid(False)
+        
+        # 如果没有数据，跳过后续步骤
+        if not has_data:
+            # 调整布局，确保标签可见
+            self.cie_figure.subplots_adjust(bottom=0.15, left=0.15, right=0.95, top=0.9)
+            self.cie_canvas.draw()
+            return
+        
+        # 绘制色度坐标点
+        print(f"Plotting {len(self.data['results'])} CIE coordinates")
+        for result in self.data['results']:
+            x, y = result['x'], result['y']
+            hex_color = result['hex_color']
+            print(f"  Plotting point: {result['file_name']} at ({x:.4f}, {y:.4f})")
+            # 设置数据点与光源点大小一致，使用实心点
+            ax.plot(x, y, 'o', color=hex_color, markersize=4, markeredgecolor='black', 
+                   markeredgewidth=0.8, zorder=100)
+        
+        # 调整布局，确保标签可见，并调整比例
+        self.cie_figure.subplots_adjust(bottom=0.15, left=0.15, right=0.95, top=0.9)
+        
+        # 刷新画布
+        self.cie_canvas.draw()
+    
+    def draw_cie_boundary(self, ax):
+        """绘制CIE 1931色度图边界"""
+        # 使用简化的CIE 1931色度图边界点
+        boundary_x = [0.1740, 0.0000, 0.0000, 0.0332, 0.0648, 0.0919, 0.1390, 0.1738, 0.2080, 0.2586, 0.3230, 0.3962, 0.4400, 0.4699, 0.4999, 0.5140, 0.5295, 0.5482, 0.5651, 0.5780, 0.5832, 0.5800, 0.5672, 0.5314, 0.4649, 0.3652, 0.2615, 0.1740]
+        boundary_y = [0.0049, 0.0000, 0.0100, 0.0380, 0.0650, 0.0910, 0.2080, 0.2737, 0.3344, 0.4077, 0.4964, 0.5574, 0.5800, 0.5888, 0.5991, 0.6039, 0.6089, 0.6128, 0.6150, 0.6160, 0.6160, 0.6155, 0.6123, 0.6030, 0.5657, 0.4679, 0.2624, 0.0049]
+        
+        # 绘制边界
+        ax.plot(boundary_x, boundary_y, 'k-')
+        
+        # 填充范围
+        ax.fill(boundary_x, boundary_y, alpha=0.1, color='gray')
+        
+        # 绘制白点
+        ax.plot(0.3127, 0.3290, 'ko', markersize=6, label='D65')
+        
+        # 绘制sRGB色域（手动定义顶点）
+        srgb_r = (0.64, 0.33)
+        srgb_g = (0.30, 0.60)
+        srgb_b = (0.15, 0.06)
+        srgb_x = [srgb_r[0], srgb_g[0], srgb_b[0], srgb_r[0]]
+        srgb_y = [srgb_r[1], srgb_g[1], srgb_b[1], srgb_r[1]]
+        ax.plot(srgb_x, srgb_y, 'r--', label=self.settings['general']['gamut'])
+        
+        # 设置网格，添加默认值检查
+        grid_enabled = True  # 默认启用网格
+        if 'plot' in self.settings:
+            grid_enabled = self.settings['plot'].get('grid', True)
+        ax.grid(grid_enabled)
+    
+    def update_results_table(self):
+        """更新结果表格"""
+        # 清空表格
+        self.ui.table_results.setRowCount(0)
+        
+        # 检查是否有数据可以显示
+        if not self.data['results']:
+            print("No results to display in table")
+            return
+        
+        # 填充结果
+        print(f"Updating table with {len(self.data['results'])} results")
+        for i, result in enumerate(self.data['results']):
+            row_position = self.ui.table_results.rowCount()
+            self.ui.table_results.insertRow(row_position)
+            
+            # 添加文件名
+            file_item = QTableWidgetItem(result['file_name'])
+            self.ui.table_results.setItem(row_position, 0, file_item)
+            
+            # 添加x坐标
+            x_item = QTableWidgetItem(f"{result['x']:.6f}")
+            x_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.ui.table_results.setItem(row_position, 1, x_item)
+            
+            # 添加y坐标
+            y_item = QTableWidgetItem(f"{result['y']:.6f}")
+            y_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.ui.table_results.setItem(row_position, 2, y_item)
+            
+            # 添加线性sRGB
+            rgb_linear = result['rgb_linear']
+            rgb_linear_str = f"({rgb_linear[0]:.4f}, {rgb_linear[1]:.4f}, {rgb_linear[2]:.4f})"
+            rgb_linear_item = QTableWidgetItem(rgb_linear_str)
+            rgb_linear_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.ui.table_results.setItem(row_position, 3, rgb_linear_item)
+            
+            # 添加Gamma校正sRGB（保持原始计算结果，不裁剪）
+            rgb_gamma = result['rgb_gamma']
+            rgb_gamma_str = f"({rgb_gamma[0]:.4f}, {rgb_gamma[1]:.4f}, {rgb_gamma[2]:.4f})"
+            rgb_gamma_item = QTableWidgetItem(rgb_gamma_str)
+            rgb_gamma_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            
+            # 为UI显示目的，裁剪颜色到[0,1]范围，但显示原始值
+            display_gamma = np.clip(rgb_gamma, 0, 1)
+            hex_color = '#{:02X}{:02X}{:02X}'.format(
+                int(display_gamma[0] * 255),
+                int(display_gamma[1] * 255),
+                int(display_gamma[2] * 255)
+            )
+            rgb_gamma_item.setForeground(QColor(hex_color))
+            self.ui.table_results.setItem(row_position, 4, rgb_gamma_item)
+        
+        # 调整表格列宽
+        self.adjust_table_columns()
+        
+        print("Table updated successfully")
+    
+    def open_export_dialog(self):
+        """打开导出对话框"""
+        if not self.data['results']:
+            QMessageBox.warning(self, "Warning", "No data to export.")
+            return
+        
+        dialog = ExportDialog(self.data, self.settings, self)
+        dialog.exec()
+    
+    def open_plot_dialog(self):
+        """打开绘图对话框"""
+        if not self.data['reflectance']:
+            QMessageBox.warning(self, "Warning", "No data to plot.")
+            return
+        
+        dialog = PlotDialog(self.data, self.settings, self)
+        dialog.exec()
+    
+    def open_settings_dialog(self):
+        """打开设置对话框"""
+        dialog = SettingsDialog(self, self.settings)
+        if dialog.exec():
+            # 如果用户点击了"确定"，则保存设置
+            self.settings = dialog.get_settings()
+            # 保存设置
+            self.save_settings()
+            # 应用设置
+            self.apply_settings()
+            # 如果有必要，重新计算结果
+            self.recalculate_results()
+    
+    def apply_settings(self):
+        """应用设置"""
+        # 应用光源设置
+        illuminant = self.settings['general']['illuminant']
+        self.color_calculator.set_illuminant(illuminant)
+        
+        # 应用rho_lambda设置
+        rho_lambda = self.settings['general']['rho_lambda']
+        self.color_calculator.set_rho_lambda(rho_lambda)
+        print(f"应用rho_lambda设置: {rho_lambda}")
+        
+        # 更新菜单选中状态
+        if hasattr(self, 'illuminant_actions'):
+            for name, action in self.illuminant_actions.items():
+                action.setChecked(name == illuminant)
+        
+        # 应用Gamut设置
+        gamut = self.settings['general']['gamut']
+        if hasattr(self, 'gamut_actions'):
+            for name, action in self.gamut_actions.items():
+                action.setChecked(name == gamut)
+        
+        # 更新CIE图表显示，确保光源点显示正确
+        self.update_cie_plot()
+        
+        # 重新计算并更新显示
+        self.recalculate_results()
+    
+    def recalculate_results(self):
+        """重新计算所有结果"""
+        if not self.data['reflectance']:
+            return
+        
+        # 清空当前结果
+        self.data['results'] = []
+        
+        # 重新计算每个数据集
+        for file_name, result_data in self.data['reflectance'].items():
+            # 从结果数据中提取反射率和波长
+            if isinstance(result_data, dict) and 'reflectance' in result_data and 'wavelengths' in result_data:
+                # 新格式：使用存储的原始步长数据进行计算
+                reflectance = result_data['reflectance']
+                wavelengths = result_data['wavelengths']
+                print(f"使用原始步长数据重新计算'{file_name}': 波长范围={wavelengths[0]}-{wavelengths[-1]}nm, "
+                      f"点数={len(wavelengths)}, 步长={wavelengths[1]-wavelengths[0]}nm")
+            else:
+                # 旧格式：reflectance直接是数据数组
+                reflectance = result_data
+                wavelengths = self.data['original_wavelengths'] if self.data['original_wavelengths'] is not None else self.data['wavelengths']
+                print(f"使用旧格式数据重新计算'{file_name}': 波长范围={wavelengths[0]}-{wavelengths[-1]}nm, "
+                      f"点数={len(wavelengths)}, 步长={wavelengths[1]-wavelengths[0]}nm")
+            
+            # 计算颜色参数
+            result = self.color_calculator.process_measurement(reflectance, wavelengths)
+            
+            # 更新存储的反射率数据（包括1nm步长的数据）
+            self.data['reflectance'][file_name] = result
+            
+            # 存储结果
+            self.data['results'].append({
+                'file_name': file_name,
+                'x': result['xy'][0],
+                'y': result['xy'][1],
+                'rgb_linear': result['rgb_linear'],
+                'rgb_gamma': result['rgb_gamma'],
+                'hex_color': result['hex_color']
+            })
+        
+        # 更新界面
+        self.update_cie_plot()
+        self.update_results_table()
+    
+    def open_about_dialog(self):
+        """打开关于对话框"""
+        dialog = AboutDialog(self)
+        dialog.exec()
+    
+    def open_manual(self):
+        """打开使用手册"""
+        QMessageBox.information(self, "Manual", "User manual not available yet.")
+    
+    def change_illuminant(self):
+        """更改光源设置"""
+        action = self.sender()
+        if not action.isChecked():
+            # 防止取消选中
+            action.setChecked(True)
+            return
+        
+        # 获取选中的光源
+        illuminant = action.data()
+        
+        # 更新其他光源选项的选中状态
+        for name, act in self.illuminant_actions.items():
+            if name != illuminant:
+                act.setChecked(False)
+        
+        # 更新设置
+        self.settings['general']['illuminant'] = illuminant
+        self.color_calculator.set_illuminant(illuminant)
+        
+        # 更新CIE图表显示，确保光源点显示正确
+        self.update_cie_plot()
+        
+        # 重新计算并更新显示
+        self.recalculate_results()
+        
+        print(f"已切换光源为: {illuminant}")
+    
+    def change_gamut(self):
+        """更改Gamut设置"""
+        action = self.sender()
+        if not action.isChecked():
+            # 防止取消选中
+            action.setChecked(True)
+            return
+        
+        # 获取选中的Gamut
+        gamut = action.data()
+        
+        # 更新其他Gamut选项的选中状态
+        for name, act in self.gamut_actions.items():
+            if name != gamut:
+                act.setChecked(False)
+        
+        # 更新设置
+        self.settings['general']['gamut'] = gamut
+        
+        # 目前不需要重新计算，但可能需要更新显示
+        self.update_cie_plot()
+    
+    def copy_all_data(self):
+        """复制所有数据到剪贴板"""
+        if not self.data['results']:
+            QMessageBox.warning(self, "Warning", "No data to copy.")
+            return
+        
+        # 构建表格数据字符串
+        text = "File Name\tx\ty\tsRGB linear\tsRGB gamma\n"
+        
+        for result in self.data['results']:
+            rgb_linear = result['rgb_linear']
+            rgb_gamma = result['rgb_gamma']
+            
+            row = [
+                result['file_name'],
+                f"{result['x']:.6f}",
+                f"{result['y']:.6f}",
+                f"({rgb_linear[0]:.4f}, {rgb_linear[1]:.4f}, {rgb_linear[2]:.4f})",
+                f"({rgb_gamma[0]:.4f}, {rgb_gamma[1]:.4f}, {rgb_gamma[2]:.4f})"
+            ]
+            
+            text += "\t".join(row) + "\n"
+        
+        # 复制到剪贴板
+        QApplication.clipboard().setText(text)
+        
+        # 显示提示
+        QMessageBox.information(self, "Copy", "Data copied to clipboard.")
+    
+    def copy_table_data(self):
+        """复制表格数据到剪贴板"""
+        if self.ui.table_results.rowCount() == 0:
+            QMessageBox.warning(self, "Warning", "No data to copy.")
+            return
+        
+        # 构建表格数据字符串
+        text = ""
+        
+        # 添加表头
+        headers = []
+        for col in range(self.ui.table_results.columnCount()):
+            headers.append(self.ui.table_results.horizontalHeaderItem(col).text())
+        text += "\t".join(headers) + "\n"
+        
+        # 添加数据行
+        for row in range(self.ui.table_results.rowCount()):
+            row_data = []
+            for col in range(self.ui.table_results.columnCount()):
+                item = self.ui.table_results.item(row, col)
+                if item is not None:
+                    row_data.append(item.text())
+                else:
+                    row_data.append("")
+            text += "\t".join(row_data) + "\n"
+        
+        # 复制到剪贴板
+        QApplication.clipboard().setText(text)
+        
+        # 显示提示
+        QMessageBox.information(self, "Copy", "Table data copied to clipboard.")
+    
+    def clear_data(self):
+        """清空数据"""
+        if not self.data['results']:
+            return
+        
+        # 确认对话框
+        reply = QMessageBox.question(
+            self, 
+            "Clear Data", 
+            "Are you sure you want to clear all data?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.reset_data()
+    
+    def show_reflectance_data(self):
+        """显示反射率数据"""
+        if not self.data['reflectance']:
+            QMessageBox.warning(self, "Warning", "No reflectance data to show.")
+            return
+        
+        # 优先使用原始波长数据（通常是1nm间隔）
+        wavelengths = self.data['original_wavelengths'] if self.data['original_wavelengths'] is not None else self.data['wavelengths']
+        
+        # 打印波长信息
+        if len(wavelengths) > 1:
+            print(f"显示反射率数据使用波长: 范围={wavelengths[0]:.1f}-{wavelengths[-1]:.1f}nm, "
+                  f"点数={len(wavelengths)}, 步长={wavelengths[1]-wavelengths[0]:.1f}nm")
+        
+        # 创建数据集字典
+        datasets = {}
+        for name, reflectance_data in self.data['reflectance'].items():
+            print(f"处理数据集 '{name}'...")
+            
+            # 检查数据格式，以适应新旧两种结构
+            if isinstance(reflectance_data, dict):
+                # 新格式：字典结构
+                # 优先使用1nm步长的数据(reflectance_1nm)用于显示
+                if 'reflectance_1nm' in reflectance_data and len(reflectance_data['reflectance_1nm']) > 0:
+                    reflectance = reflectance_data['reflectance_1nm']
+                    wavelen = reflectance_data['wavelengths_1nm'] if 'wavelengths_1nm' in reflectance_data else wavelengths
+                    print(f"使用1nm步长数据显示: {len(reflectance)}点")
+                # 其次使用原始反射率数据
+                elif 'reflectance' in reflectance_data:
+                    reflectance = reflectance_data['reflectance']
+                    wavelen = reflectance_data['wavelengths'] if 'wavelengths' in reflectance_data else wavelengths
+                    print(f"使用原始反射率数据显示: {len(reflectance)}点")
+                else:
+                    print(f"警告: 数据集'{name}'格式无效，跳过")
+                    continue
+            else:
+                # 旧格式：直接是数据数组
+                reflectance = reflectance_data
+                wavelen = wavelengths
+                print(f"使用旧格式数据显示: {len(reflectance)}点")
+            
+            # 检查长度匹配
+            if len(wavelen) != len(reflectance):
+                print(f"警告: 波长和反射率长度不匹配: 波长={len(wavelen)}, 反射率={len(reflectance)}")
+                
+                # 如果wavelen不是我们需要的波长，需要重采样
+                if np.array_equal(wavelen, wavelengths):
+                    print("波长数组匹配，但数据长度不一致，可能数据已损坏")
+                    datasets[name] = reflectance  # 直接使用数据，可能显示不正确
+                else:
+                    print("波长数组不匹配，尝试重采样...")
+                    try:
+                        # 使用提供的波长和目标波长进行插值
+                        interp_func = interp.interp1d(
+                            wavelen, 
+                            reflectance, 
+                            bounds_error=False, 
+                            fill_value="extrapolate"
+                        )
+                        
+                        # 重采样反射率数据以匹配目标波长数组
+                        resampled_reflectance = interp_func(wavelengths)
+                        datasets[name] = resampled_reflectance
+                        print(f"重采样完成: {len(reflectance)} -> {len(resampled_reflectance)} 点")
+                    except Exception as e:
+                        print(f"重采样失败: {str(e)}")
+                        # 如果重采样失败，创建与目标波长长度相同的零数组
+                        datasets[name] = np.zeros_like(wavelengths)
+                        print("创建了零填充数组作为替代")
+            else:
+                # 长度匹配，直接使用
+                datasets[name] = reflectance
+                print(f"数据长度匹配，直接使用: {len(reflectance)}点")
+        
+        if not datasets:
+            QMessageBox.warning(self, "Warning", "No valid reflectance data to show.")
+            return
+            
+        # 打开对话框
+        dialog = ReflectanceDataDialog(wavelengths, datasets, self)
+        dialog.exec()
+
+    def on_window_resize(self, event):
+        """窗口大小改变时调整表格列宽"""
+        # 调用父类的resizeEvent
+        super().resizeEvent(event)
+        
+        # 重新调整表格列宽
+        self.adjust_table_columns()
+    
+    def adjust_table_columns(self):
+        """调整表格列宽以适应内容和窗口大小"""
+        if not hasattr(self.ui, 'table_results') or self.ui.table_results.columnCount() == 0:
+            return
+        
+        # 获取表格的总宽度
+        table_width = self.ui.table_results.width()
+        
+        # 获取表头
+        header = self.ui.table_results.horizontalHeader()
+        
+        # 计算x和y列以及两个RGB列所需的空间
+        fixed_width = 0
+        for col in [1, 2, 3, 4]:  # x, y, sRGB Linear, sRGB Gamma列
+            if col == 1 or col == 2:  # x和y列
+                width = max(70, header.sectionSize(col))  # 确保x和y列至少70像素
+            else:  # RGB列
+                width = max(150, header.sectionSize(col))  # 至少150像素
+            fixed_width += width
+        
+        # 计算文件名列的可用宽度
+        filename_width = max(130, table_width - fixed_width - 5)  # 至少130像素，减5像素作为缓冲
+        
+        # 设置文件名列宽度
+        self.ui.table_results.setColumnWidth(0, filename_width)
+        
+        # 设置其他列的宽度
+        self.ui.table_results.setColumnWidth(1, max(70, header.sectionSize(1)))  # x列
+        self.ui.table_results.setColumnWidth(2, max(70, header.sectionSize(2)))  # y列
+        self.ui.table_results.setColumnWidth(3, max(150, header.sectionSize(3)))  # sRGB Linear列
+        self.ui.table_results.setColumnWidth(4, max(150, header.sectionSize(4)))  # sRGB Gamma列
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())

@@ -1,0 +1,15 @@
+Matlab_Input/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+.AppleDouble
+.LSOverride
+*.bak
+.ipynb_checkpoints
+debug_*.csv
+debug_*.txt
+test_output/
+test_results/
+test_calculation_output/

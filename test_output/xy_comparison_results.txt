@@ -1,0 +1,4 @@
+文件,计算x,计算y,仪器x,仪器y,计算来源,仪器来源
+tu-berlin00004.csv,0.616131,0.379515,0.388600,0.318400,calculated,instrument
+tu-berlin00006.csv,0.479756,0.471465,0.387300,0.318800,calculated,instrument
+tu-berlin00007.csv,0.454570,0.488640,0.390000,0.319800,calculated,instrument

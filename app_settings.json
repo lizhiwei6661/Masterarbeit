@@ -1,0 +1,33 @@
+{
+    "general": {
+        "rho_lambda": 0.989,
+        "gamut": "Adobe RGB",
+        "illuminant": "D50",
+        "rgb_values": "0 ... 255"
+    },
+    "plot": {
+        "dpi": 300,
+        "reflectance_width": 800,
+        "reflectance_height": 600,
+        "cie_width": 600,
+        "cie_height": 600,
+        "reflectance_title": "Reflectance",
+        "cie_title": "CIE 1931 Chromaticity Diagram",
+        "reflectance_show_title": true,
+        "cie_show_title": true,
+        "reflectance_show_legend": true,
+        "cie_show_legend": true,
+        "reflectance_color": "#1f77b4"
+    },
+    "export": {
+        "separator": "Comma",
+        "copy_header": "Yes",
+        "default_directory": "/Users/zhiwei",
+        "default_format": "xlsx",
+        "include_header": true,
+        "decimal_places": 6
+    },
+    "import": {
+        "default_directory": "/Users/zhiwei/Masterarbeit/Matlab_Input/Import_Sample"
+    }
+}

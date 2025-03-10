@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog_import</class>
+ <widget class="QDialog" name="Dialog_import">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>619</width>
+    <height>417</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="0">
+    <widget class="QGroupBox" name="groupBox_import">
+     <property name="title">
+      <string/>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0" rowminimumheight="0,0,0,3,3,3,3,3,0,0,0,0,0">
+      <property name="horizontalSpacing">
+       <number>7</number>
+      </property>
+      <item row="8" column="0">
+       <widget class="QPushButton" name="pushButton_black">
+        <property name="text">
+         <string>Select Black Reference</string>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="1">
+       <widget class="QListView" name="listView_import_file">
+        <property name="movement">
+         <enum>QListView::Movement::Free</enum>
+        </property>
+        <property name="isWrapping" stdset="0">
+         <bool>false</bool>
+        </property>
+        <property name="resizeMode">
+         <enum>QListView::ResizeMode::Fixed</enum>
+        </property>
+        <property name="layoutMode">
+         <enum>QListView::LayoutMode::SinglePass</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QComboBox" name="comboBox_equp">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <item>
+         <property name="text">
+          <string>Aleksameter</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Generic</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="10" column="0">
+       <widget class="QPushButton" name="pushButton_clear_ref">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Clear Reference</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1" rowspan="7">
+       <widget class="QGraphicsView" name="view_spec"/>
+      </item>
+      <item row="9" column="0">
+       <widget class="QPushButton" name="pushButton_white">
+        <property name="text">
+         <string>Select White Reference</string>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="0" alignment="Qt::AlignmentFlag::AlignTop">
+       <widget class="QPushButton" name="pushButton_select_data">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Select Measurements</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QDialogButtonBox" name="buttonBox_import">
+     <property name="font">
+      <font>
+       <family>.AppleSystemUIFont</family>
+      </font>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::StandardButton::Cancel|QDialogButtonBox::StandardButton::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
