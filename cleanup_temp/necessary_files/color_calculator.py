@@ -4,7 +4,6 @@ import os
 import json
 import re
 import csv
-import sys
 
 class ColorCalculator:
     """
@@ -28,9 +27,6 @@ class ColorCalculator:
         for illuminant_name in self.illuminants.keys():
             print(f"Illuminant {illuminant_name}: {len(self.illuminants[illuminant_name])} points")
         
-        # 打印光源关键信息以便比较
-        self.print_illuminant_info()
-            
         # 设置默认波长范围
         self.wavelengths = np.arange(380, 781, 5)  # 380-780nm，5nm步长
         
@@ -42,43 +38,6 @@ class ColorCalculator:
         
         print("ColorCalculator initialization completed")
     
-    def print_illuminant_info(self):
-        """打印光源信息，用于调试比较不同光源的差异"""
-        if 'D65' in self.illuminants and 'D50' in self.illuminants:
-            d65 = self.illuminants['D65']
-            d50 = self.illuminants['D50']
-            
-            if len(d65) > 0 and len(d50) > 0:
-                # 计算相对差异
-                diff_percent = np.mean(np.abs((d65 - d50) / (d65 + 1e-10)) * 100)
-                max_diff_idx = np.argmax(np.abs(d65 - d50))
-                max_diff_percent = np.abs((d65[max_diff_idx] - d50[max_diff_idx]) / (d65[max_diff_idx] + 1e-10)) * 100
-                
-                wavelengths = self.cie_1931['wavelengths']
-                max_diff_wavelength = wavelengths[max_diff_idx] if max_diff_idx < len(wavelengths) else "unknown"
-                
-                print(f"D65 vs D50 平均差异: {diff_percent:.2f}%, 最大差异: {max_diff_percent:.2f}% at {max_diff_wavelength}nm")
-                print(f"D65 前10个值: {d65[:10]}")
-                print(f"D50 前10个值: {d50[:10]}")
-    
-    def get_resource_path(self, relative_path):
-        """
-        获取资源文件的绝对路径，适用于开发环境和PyInstaller打包环境
-        
-        Parameters:
-            relative_path: 相对路径
-            
-        Returns:
-            绝对路径
-        """
-        try:
-            # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
-            base_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
-            return os.path.join(base_path, relative_path)
-        except Exception as e:
-            print(f"Error getting resource path: {str(e)}")
-            return relative_path
-    
     def load_cie_data_from_csv(self):
         """
         Load CIE standard observer data from xyzBar.csv
@@ -86,7 +45,7 @@ class ColorCalculator:
         Returns:
             cie_1931: Dictionary containing wavelengths, x, y, z values
         """
-        csv_path = self.get_resource_path("xyzBar.csv")
+        csv_path = "xyzBar.csv"
         
         if not os.path.exists(csv_path):
             print(f"Warning: xyzBar.csv file does not exist: {csv_path}")
@@ -134,6 +93,51 @@ class ColorCalculator:
             print("Using built-in CIE data")
             return self.load_cie_data()
     
+    def load_cie_data(self):
+        """
+        Load built-in CIE standard observer data
+        """
+        # CIE 1931 standard observer function data (2 degree field of view)
+        cie_1931 = {
+            'wavelengths': np.arange(380, 781, 5),
+            'x': np.array([
+                0.0014, 0.0022, 0.0042, 0.0076, 0.0143, 0.0232, 0.0435, 0.0776, 0.1344, 0.2148,
+                0.2839, 0.3285, 0.3483, 0.3481, 0.3362, 0.3187, 0.2908, 0.2511, 0.1954, 0.1421,
+                0.0956, 0.0580, 0.0320, 0.0147, 0.0049, 0.0024, 0.0093, 0.0291, 0.0633, 0.1096,
+                0.1655, 0.2257, 0.2904, 0.3597, 0.4334, 0.5121, 0.5945, 0.6784, 0.7621, 0.8425,
+                0.9163, 0.9786, 1.0263, 1.0567, 1.0622, 1.0456, 1.0026, 0.9384, 0.8544, 0.7514,
+                0.6424, 0.5419, 0.4479, 0.3608, 0.2835, 0.2187, 0.1649, 0.1212, 0.0874, 0.0636,
+                0.0468, 0.0329, 0.0227, 0.0158, 0.0114, 0.0081, 0.0058, 0.0041, 0.0029, 0.0020,
+                0.0014, 0.0010, 0.0007, 0.0005, 0.0003, 0.0002, 0.0002, 0.0001, 0.0001, 0.0001,
+                0.0000
+            ]),
+            'y': np.array([
+                0.0000, 0.0001, 0.0001, 0.0002, 0.0004, 0.0006, 0.0012, 0.0022, 0.0040, 0.0073,
+                0.0116, 0.0168, 0.0230, 0.0298, 0.0380, 0.0480, 0.0600, 0.0739, 0.0910, 0.1126,
+                0.1390, 0.1693, 0.2080, 0.2586, 0.3230, 0.4073, 0.5030, 0.6082, 0.7100, 0.7932,
+                0.8620, 0.9149, 0.9540, 0.9803, 0.9950, 1.0000, 0.9950, 0.9786, 0.9520, 0.9154,
+                0.8700, 0.8163, 0.7570, 0.6949, 0.6310, 0.5668, 0.5030, 0.4412, 0.3810, 0.3210,
+                0.2650, 0.2170, 0.1750, 0.1382, 0.1070, 0.0816, 0.0610, 0.0446, 0.0320, 0.0232,
+                0.0170, 0.0119, 0.0082, 0.0057, 0.0041, 0.0029, 0.0021, 0.0015, 0.0011, 0.0008,
+                0.0006, 0.0004, 0.0003, 0.0002, 0.0002, 0.0001, 0.0001, 0.0001, 0.0000, 0.0000,
+                0.0000
+            ]),
+            'z': np.array([
+                0.0065, 0.0105, 0.0201, 0.0362, 0.0679, 0.1102, 0.2074, 0.3713, 0.6456, 1.0391,
+                1.3856, 1.6230, 1.7471, 1.7826, 1.7721, 1.7441, 1.6692, 1.5281, 1.2876, 1.0419,
+                0.8130, 0.6162, 0.4652, 0.3533, 0.2720, 0.2123, 0.1582, 0.1117, 0.0782, 0.0573,
+                0.0422, 0.0298, 0.0203, 0.0134, 0.0087, 0.0057, 0.0039, 0.0027, 0.0021, 0.0018,
+                0.0017, 0.0014, 0.0011, 0.0010, 0.0008, 0.0006, 0.0003, 0.0002, 0.0002, 0.0001,
+                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
+                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
+                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
+                0.0000
+            ])
+        }
+        
+        print("Using built-in CIE data")
+        return cie_1931
+    
     def load_illuminants(self):
         """
         Load standard light source data
@@ -142,7 +146,7 @@ class ColorCalculator:
             illuminants: Dictionary of different standard light sources
         """
         # First try to load from CSV file
-        csv_path = self.get_resource_path("stdIllum.csv")
+        csv_path = "stdIllum.csv"
         
         if os.path.exists(csv_path):
             try:
@@ -207,10 +211,6 @@ class ColorCalculator:
                 if len(illuminant_d50) > 0:
                     illuminants['D50'] = np.array(illuminant_d50)
                     print(f"Loaded D50 light source: {len(illuminant_d50)} points, range: {min(illuminant_d50):.6f}-{max(illuminant_d50):.6f}")
-                    # 确保D50与D65有明显区别，避免数值过于接近导致计算结果相同
-                    if np.allclose(illuminant_d50, illuminant_d65, rtol=1e-3, atol=1e-3):
-                        print("警告: D50光源数据与D65过于接近，使用内置D50数据替代")
-                        illuminants['D50'] = self.load_default_d50()
                 
                 # Calculate uniform light source E (all wavelengths power equal)
                 if 'E' not in illuminants:
@@ -247,67 +247,6 @@ class ColorCalculator:
             print(f"Light source CSV file does not exist: {csv_path}")
             print("Using built-in light source data")
             return self.load_default_illuminants()
-    
-    def load_default_d50(self):
-        """载入内置D50光源数据，5nm步长"""
-        # CIE D50标准光源，5nm步长，380-780nm
-        d50 = np.array([
-            23.96, 25.8, 27.7, 29.8, 32.0, 39.0, 49.9, 59.8, 63.5, 65.7,
-            75.1, 77.9, 77.0, 76.0, 75.4, 73.5, 71.4, 73.0, 74.5, 75.9,
-            76.8, 77.5, 77.2, 77.0, 76.8, 76.5, 76.0, 75.5, 75.0, 74.5,
-            74.0, 73.5, 73.0, 72.5, 72.0, 71.5, 71.0, 70.5, 70.0, 69.5,
-            69.0, 68.5, 68.0, 67.5, 67.0, 66.5, 66.0, 65.5, 65.0, 64.5,
-            64.0, 63.5, 63.0, 62.5, 62.0, 61.5, 61.0, 60.5, 60.0, 59.5,
-            59.0, 58.5, 58.0, 57.5, 57.0, 56.5, 56.0, 55.5, 55.0, 54.5,
-            54.0, 53.5, 53.0, 52.5, 52.0, 51.5, 51.0, 50.5, 50.0, 49.5,
-            49.0
-        ])
-        return d50
-    
-    def load_cie_data(self):
-        """
-        Load built-in CIE standard observer data
-        """
-        # CIE 1931 standard observer function data (2 degree field of view)
-        cie_1931 = {
-            'wavelengths': np.arange(380, 781, 5),
-            'x': np.array([
-                0.0014, 0.0022, 0.0042, 0.0076, 0.0143, 0.0232, 0.0435, 0.0776, 0.1344, 0.2148,
-                0.2839, 0.3285, 0.3483, 0.3481, 0.3362, 0.3187, 0.2908, 0.2511, 0.1954, 0.1421,
-                0.0956, 0.0580, 0.0320, 0.0147, 0.0049, 0.0024, 0.0093, 0.0291, 0.0633, 0.1096,
-                0.1655, 0.2257, 0.2904, 0.3597, 0.4334, 0.5121, 0.5945, 0.6784, 0.7621, 0.8425,
-                0.9163, 0.9786, 1.0263, 1.0567, 1.0622, 1.0456, 1.0026, 0.9384, 0.8544, 0.7514,
-                0.6424, 0.5419, 0.4479, 0.3608, 0.2835, 0.2187, 0.1649, 0.1212, 0.0874, 0.0636,
-                0.0468, 0.0329, 0.0227, 0.0158, 0.0114, 0.0081, 0.0058, 0.0041, 0.0029, 0.0020,
-                0.0014, 0.0010, 0.0007, 0.0005, 0.0003, 0.0002, 0.0002, 0.0001, 0.0001, 0.0001,
-                0.0000
-            ]),
-            'y': np.array([
-                0.0000, 0.0001, 0.0001, 0.0002, 0.0004, 0.0006, 0.0012, 0.0022, 0.0040, 0.0073,
-                0.0116, 0.0168, 0.0230, 0.0298, 0.0380, 0.0480, 0.0600, 0.0739, 0.0910, 0.1126,
-                0.1390, 0.1693, 0.2080, 0.2586, 0.3230, 0.4073, 0.5030, 0.6082, 0.7100, 0.7932,
-                0.8620, 0.9149, 0.9540, 0.9803, 0.9950, 1.0000, 0.9950, 0.9786, 0.9520, 0.9154,
-                0.8700, 0.8163, 0.7570, 0.6949, 0.6310, 0.5668, 0.5030, 0.4412, 0.3810, 0.3210,
-                0.2650, 0.2170, 0.1750, 0.1382, 0.1070, 0.0816, 0.0610, 0.0446, 0.0320, 0.0232,
-                0.0170, 0.0119, 0.0082, 0.0057, 0.0041, 0.0029, 0.0021, 0.0015, 0.0011, 0.0008,
-                0.0006, 0.0004, 0.0003, 0.0002, 0.0002, 0.0001, 0.0001, 0.0001, 0.0000, 0.0000,
-                0.0000
-            ]),
-            'z': np.array([
-                0.0065, 0.0105, 0.0201, 0.0362, 0.0679, 0.1102, 0.2074, 0.3713, 0.6456, 1.0391,
-                1.3856, 1.6230, 1.7471, 1.7826, 1.7721, 1.7441, 1.6692, 1.5281, 1.2876, 1.0419,
-                0.8130, 0.6162, 0.4652, 0.3533, 0.2720, 0.2123, 0.1582, 0.1117, 0.0782, 0.0573,
-                0.0422, 0.0298, 0.0203, 0.0134, 0.0087, 0.0057, 0.0039, 0.0027, 0.0021, 0.0018,
-                0.0017, 0.0014, 0.0011, 0.0010, 0.0008, 0.0006, 0.0003, 0.0002, 0.0002, 0.0001,
-                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                0.0000
-            ])
-        }
-        
-        print("Using built-in CIE data")
-        return cie_1931
     
     def load_default_illuminants(self):
         """
@@ -354,11 +293,59 @@ class ColorCalculator:
     
     def load_matlab_xyzbar(self):
         """
-        方法被移除，避免依赖MATLAB文件
-        该方法仅用于兼容性参考，不再需要
+        Load xyzBar.mat file from MATLAB, used for compatibility with MATLAB calculations
+        
+        Returns:
+            matlab_xyzbar: MATLAB xyzBar data dictionary
         """
-        print("MATLAB compatibility mode is disabled in this version")
-        return None
+        try:
+            import scipy.io as sio
+            import os
+            
+            # MATLAB file path
+            xyzbar_path = "Matlab_Input/libraries/xyzBar.mat"
+            
+            if not os.path.exists(xyzbar_path):
+                print(f"Warning: MATLAB xyzBar.mat file does not exist: {xyzbar_path}")
+                return None
+                
+            # Load MATLAB file
+            matlab_data = sio.loadmat(xyzbar_path)
+            
+            if 'xyzBar' not in matlab_data:
+                print("Warning: MATLAB file does not contain 'xyzBar' key")
+                return None
+                
+            # Extract xyzBar data
+            xyzBar = matlab_data['xyzBar']
+            
+            if xyzBar.shape[1] != 3:
+                print(f"Warning: xyzBar column number is not 3, but {xyzBar.shape[1]}")
+                return None
+                
+            # Create wavelength array - xyzBar is 401 points(380-780nm), 1nm step
+            matlab_cie_wl = np.arange(380, 781, 1)
+            
+            if len(matlab_cie_wl) != len(xyzBar):
+                print(f"Warning: Generated wavelength array length({len(matlab_cie_wl)}) does not match xyzBar data length({len(xyzBar)})")
+                # Try to generate matching wavelength array
+                matlab_cie_wl = np.linspace(380, 780, len(xyzBar))
+                
+            # Create MATLAB xyzBar data dictionary
+            matlab_xyzbar = {
+                'wavelengths': matlab_cie_wl,
+                'x': xyzBar[:, 0],
+                'y': xyzBar[:, 1],
+                'z': xyzBar[:, 2]
+            }
+            
+            print(f"Successfully loaded MATLAB xyzBar data: {len(matlab_xyzbar['wavelengths'])} points, wavelength range: {matlab_xyzbar['wavelengths'][0]}-{matlab_xyzbar['wavelengths'][-1]}nm")
+            
+            return matlab_xyzbar
+            
+        except Exception as e:
+            print(f"Error loading MATLAB xyzBar data: {str(e)}")
+            return None
     
     def set_illuminant(self, illuminant):
         """
@@ -368,13 +355,7 @@ class ColorCalculator:
             illuminant: Light source name ('D65', 'D50', 'A')
         """
         if illuminant in self.illuminants:
-            if self.illuminant != illuminant:
-                print(f"更改光源: {self.illuminant} -> {illuminant}")
-                self.illuminant = illuminant
-            else:
-                print(f"保持当前光源: {illuminant}")
-        else:
-            print(f"未知光源 '{illuminant}'，保持当前光源: {self.illuminant}")
+            self.illuminant = illuminant
     
     def set_calibration_mode(self, mode, black_ref=None, white_ref=None):
         """
@@ -548,9 +529,6 @@ class ColorCalculator:
         Returns:
             CIE XYZ three values
         """
-        # 打印当前使用的光源名称，用于调试
-        print(f"计算XYZ使用光源: {self.illuminant}")
-        
         if use_matlab_compatible:
             return self.calculate_xyz_matlab_compatible(reflectance, wavelengths)
         else:

@@ -17,121 +17,120 @@ from ui_plot_dialog import Ui_Dialog_plot
 class PlotDialog(QDialog):
     def __init__(self, data, settings, parent=None):
         """
-        Initialize the plot export dialog.
+        初始化绘图对话框。
         
-        Parameters:
-            data: Dictionary containing data to plot, with keys:
-                - reflectance: Reflectance data
-                - wavelengths: Wavelength data
-            settings: Application settings
-            parent: Parent window
+        参数:
+            data: 要绘制的数据字典，包含以下键:
+                - reflectance: 反射率数据
+                - wavelengths: 波长数据
+            settings: 应用程序设置
+            parent: 父窗口
         """
         super().__init__(parent)
         self.setWindowTitle("Plot Export")
         self.resize(400, 300)
         
-        # Store data and settings
+        # 存储数据和设置
         self.data = data
         self.settings = settings
         self.parent = parent
         
-        # Initialize UI
+        # 初始化UI
         self.ui = Ui_Dialog_plot()
         self.ui.setupUi(self)
         
-        # Set default filename and path
+        # 设置默认文件名和路径
         default_dir = self.settings['export']['default_directory']
         default_filename = "plot.png"
         self.ui.lineEdit_Plot_File.setText(os.path.join(default_dir, default_filename))
         
-        # Set default resolution - no longer from settings, use fixed value
-        self.ui.comboBox_Plot_Resolution.setCurrentIndex(1)  # Default to 300 dpi (good)
+        # 设置默认分辨率 - 不再从settings中获取，使用固定值
+        self.ui.comboBox_Plot_Resolution.setCurrentIndex(1)  # 默认使用300 dpi (good)
         
-        # Connect browse button signal
+        # 连接浏览按钮的信号
         self.ui.pushButton_Plot_Browse.clicked.connect(self.browse_file)
         
-        # Connect confirmation button signals
+        # 连接确认按钮的信号
         self.ui.buttonBox.accepted.connect(self.on_accepted)
         self.ui.buttonBox.rejected.connect(self.reject)
         
-        # Ensure at least one plot type is selected
+        # 确保至少选择一种图表
         self.ui.checkBox_Plot_Reflectance.stateChanged.connect(self.check_selection)
         self.ui.checkBox_Plot_CIE.stateChanged.connect(self.check_selection)
-        self.check_selection() # Initial check
     
     def check_selection(self):
-        """Ensure at least one plot type is selected."""
-        is_any_checked = self.ui.checkBox_Plot_Reflectance.isChecked() or self.ui.checkBox_Plot_CIE.isChecked()
-        self.ui.buttonBox.button(self.ui.buttonBox.StandardButton.Ok).setEnabled(is_any_checked)
+        """确保至少选择一种图表类型"""
+        if not self.ui.checkBox_Plot_Reflectance.isChecked() and not self.ui.checkBox_Plot_CIE.isChecked():
+            # 如果两个复选框都未选中，禁用确定按钮
+            self.ui.buttonBox.button(self.ui.buttonBox.StandardButton.Ok).setEnabled(False)
+        else:
+            # 如果至少选中一个，启用确定按钮
+            self.ui.buttonBox.button(self.ui.buttonBox.StandardButton.Ok).setEnabled(True)
     
     def browse_file(self):
-        """Browse and select the export file path."""
+        """浏览并选择导出文件路径"""
         current_path = self.ui.lineEdit_Plot_File.text()
         current_dir = os.path.dirname(current_path) if current_path else self.settings['export']['default_directory']
         
-        # Get the currently selected file format
+        # 获取当前选择的文件格式
         format_idx = self.ui.comboBox_Plot_Format.currentIndex()
         if format_idx == 0:
-            filter_text = "PNG Files (*.png)"
+            filter_text = "PNG 文件 (*.png)"
             ext = ".png"
         elif format_idx == 1:
-            filter_text = "JPEG Files (*.jpg *.jpeg)" # Added *.jpeg
+            filter_text = "JPEG 文件 (*.jpg)"
             ext = ".jpg"
         elif format_idx == 2:
-            filter_text = "TIFF Files (*.tif *.tiff)" # Added *.tiff
+            filter_text = "TIFF 文件 (*.tif)"
             ext = ".tif"
         else:
-            filter_text = "PDF Files (*.pdf)"
+            filter_text = "PDF 文件 (*.pdf)"
             ext = ".pdf"
         
-        # Open file selection dialog
+        # 打开文件选择对话框
         file_path, _ = QFileDialog.getSaveFileName(
             self, 
-            "Export Plot", # Changed title to English
+            "导出图表",
             os.path.join(current_dir, f"plot{ext}"),
             filter_text
         )
         
         if file_path:
-            # Ensure the correct extension is added if missing
-            if not file_path.lower().endswith(ext):
-                 file_path += ext
             self.ui.lineEdit_Plot_File.setText(file_path)
     
     def on_accepted(self):
-        """Handle the OK button click."""
+        """用户点击确定按钮时的处理"""
         export_reflectance = self.ui.checkBox_Plot_Reflectance.isChecked()
         export_cie = self.ui.checkBox_Plot_CIE.isChecked()
         
         if not export_reflectance and not export_cie:
-            QMessageBox.warning(self, "Export Error", "Please select at least one plot type to export.")
+            QMessageBox.warning(self, "导出错误", "请至少选择一种图表类型进行导出")
             return
         
         file_path = self.ui.lineEdit_Plot_File.text()
         if not file_path:
-            QMessageBox.warning(self, "Export Error", "Please specify an export file path.")
+            QMessageBox.warning(self, "导出错误", "请指定导出文件路径")
             return
         
-        # Get the currently selected file format
+        # 获取当前选择的文件格式
         format_idx = self.ui.comboBox_Plot_Format.currentIndex()
-        if format_idx == 0:
-            file_ext = ".png"
-        elif format_idx == 1:
-             file_ext = ".jpg"
-        elif format_idx == 2:
-            file_ext = ".tif"
-        else:
-            file_ext = ".pdf"
-            
-        # Ensure correct extension
-        if not file_path.lower().endswith(file_ext):
-            file_path += file_ext
         
-        # Get filename (without extension) and directory
+        # 确保有正确的扩展名
+        if format_idx == 0 and not file_path.lower().endswith('.png'):
+            file_path += '.png'
+        elif format_idx == 1 and not file_path.lower().endswith('.jpg'):
+            file_path += '.jpg'
+        elif format_idx == 2 and not file_path.lower().endswith('.tif'):
+            file_path += '.tif'
+        elif format_idx == 3 and not file_path.lower().endswith('.pdf'):
+            file_path += '.pdf'
+        
+        # 获取文件名（不含扩展名）和目录
         file_dir = os.path.dirname(file_path)
         file_name_base = os.path.splitext(os.path.basename(file_path))[0]
+        file_ext = os.path.splitext(file_path)[1]
         
-        # Get DPI setting - get corresponding DPI value from dropdown
+        # 获取DPI设置 - 从下拉框选择获取对应的DPI值
         resolution_idx = self.ui.comboBox_Plot_Resolution.currentIndex()
         if resolution_idx == 0:
             dpi = 150  # draft
@@ -144,142 +143,132 @@ class PlotDialog(QDialog):
         exported_files = []
 
         try:
-            # Export Reflectance Plot
+            # 导出反射率图表
             if export_reflectance and hasattr(self.parent, 'reflectance_figure'):
-                # Determine the file path for the reflectance plot
-                if export_cie:
-                    reflectance_file_path = os.path.join(file_dir, f"{file_name_base}_reflectance{file_ext}")
-                else:
-                    reflectance_file_path = file_path # Use the main path if only exporting this one
+                reflectance_file_path = os.path.join(file_dir, f"{file_name_base}_reflectance{file_ext}")
                 
-                # Get reflectance plot dimensions from settings
+                # 获取设置中的反射率图表尺寸
                 width_px = self.settings['plot'].get('reflectance_width', 800)
                 height_px = self.settings['plot'].get('reflectance_height', 600)
                 
-                # Calculate inches size
+                # 计算英寸尺寸
                 width_inches = width_px / dpi
                 height_inches = height_px / dpi
                 
-                print(f"Exporting Reflectance Plot: {width_px}x{height_px}px ({width_inches:.2f}x{height_inches:.2f} inches), DPI={dpi}")
+                print(f"导出反射率图表: {width_px}x{height_px}px ({width_inches:.2f}x{height_inches:.2f}英寸), DPI={dpi}")
                 
-                # Get original plot
+                # 获取原始图表
                 orig_fig = self.parent.reflectance_figure
                 
-                # Save current size for later restoration
+                # 保存当前尺寸以便稍后恢复
                 orig_size = orig_fig.get_size_inches()
                 orig_dpi = orig_fig.dpi
                 
                 try:
-                    # First update plot to ensure latest settings are applied
+                    # 先更新图表，以确保应用最新的设置
                     self.parent.update_reflectance_plot()
                     
-                    # Temporary adjustment of plot size
+                    # 临时调整图表尺寸
                     orig_fig.set_size_inches(width_inches, height_inches)
                     orig_fig.set_dpi(dpi)
                     
-                    # Adjust plot layout to ensure legend elements also scale proportionally
-                    orig_fig.tight_layout(pad=1.1)  # Add a little padding to ensure elements are not clipped
+                    # 调整图表布局，确保图例等元素也按比例缩放
+                    orig_fig.tight_layout(pad=1.1)  # 增加一点填充以确保元素不会被裁剪
                     
-                    # Force redraw to update all elements
+                    # 强制重新绘制以更新所有元素
                     orig_fig.canvas.draw()
                     
-                    # Save plot
+                    # 保存图表
                     orig_fig.savefig(
                         reflectance_file_path, 
                         dpi=dpi, 
                         bbox_inches='tight',
-                        pad_inches=0.1  # Ensure there's enough space around the edge
+                        pad_inches=0.1  # 确保边缘有足够空间
                     )
                     
                     exported_files.append(reflectance_file_path)
-                    print(f"Reflectance Plot exported to: {reflectance_file_path}")
+                    print(f"反射率图表已导出到: {reflectance_file_path}")
                     
                 finally:
-                    # Restore original size and DPI
+                    # 恢复原始尺寸和DPI
                     orig_fig.set_size_inches(orig_size)
                     orig_fig.set_dpi(orig_dpi)
-                    # Restore original layout
+                    # 恢复原始布局
                     orig_fig.tight_layout()
                     orig_fig.canvas.draw()
             
-            # Export CIE Chromaticity Diagram
+            # 导出CIE色度图
             if export_cie and hasattr(self.parent, 'cie_figure'):
-                # Determine the file path for the CIE plot
-                if export_reflectance:
-                     cie_file_path = os.path.join(file_dir, f"{file_name_base}_cie{file_ext}")
-                else:
-                    cie_file_path = file_path # Use the main path if only exporting this one
-                    
-                # Get CIE plot dimensions from settings
+                cie_file_path = os.path.join(file_dir, f"{file_name_base}_cie{file_ext}")
+                
+                # 获取设置中的CIE图表尺寸
                 width_px = self.settings['plot'].get('cie_width', 600)
                 height_px = self.settings['plot'].get('cie_height', 600)
                 
-                # Calculate inches size
+                # 计算英寸尺寸
                 width_inches = width_px / dpi
                 height_inches = height_px / dpi
                 
-                print(f"Exporting CIE Plot: {width_px}x{height_px}px ({width_inches:.2f}x{height_inches:.2f} inches), DPI={dpi}")
+                print(f"导出CIE图表: {width_px}x{height_px}px ({width_inches:.2f}x{height_inches:.2f}英寸), DPI={dpi}")
                 
-                # Get original plot
+                # 获取原始图表
                 orig_fig = self.parent.cie_figure
                 
-                # Save current size for later restoration
+                # 保存当前尺寸以便稍后恢复
                 orig_size = orig_fig.get_size_inches()
                 orig_dpi = orig_fig.dpi
                 
                 try:
-                    # First update plot to ensure latest settings are applied
+                    # 先更新图表，以确保应用最新的设置
                     self.parent.update_cie_plot()
                     
-                    # Temporary adjustment of plot size
+                    # 临时调整图表尺寸
                     orig_fig.set_size_inches(width_inches, height_inches)
                     orig_fig.set_dpi(dpi)
                     
-                    # Adjust plot layout to ensure legend elements also scale proportionally
-                    orig_fig.tight_layout(pad=1.1)  # Add a little padding to ensure elements are not clipped
+                    # 调整图表布局，确保图例等元素也按比例缩放
+                    orig_fig.tight_layout(pad=1.1)  # 增加一点填充以确保元素不会被裁剪
                     
-                    # Force redraw to update all elements
+                    # 强制重新绘制以更新所有元素
                     orig_fig.canvas.draw()
                     
-                    # Save plot
+                    # 保存图表
                     orig_fig.savefig(
                         cie_file_path, 
                         dpi=dpi, 
                         bbox_inches='tight',
-                        pad_inches=0.1  # Ensure there's enough space around the edge
+                        pad_inches=0.1  # 确保边缘有足够空间
                     )
                     
                     exported_files.append(cie_file_path)
-                    print(f"CIE Chromaticity Diagram exported to: {cie_file_path}")
+                    print(f"CIE色度图已导出到: {cie_file_path}")
                     
                 finally:
-                    # Restore original size and DPI
+                    # 恢复原始尺寸和DPI
                     orig_fig.set_size_inches(orig_size)
                     orig_fig.set_dpi(orig_dpi)
-                    # Restore original layout
+                    # 恢复原始布局
                     orig_fig.tight_layout()
                     orig_fig.canvas.draw()
             
-            # If export is successful
+            # 如果导出成功
             if success and exported_files:
-                # Save export directory to settings
+                # 保存导出目录到设置
                 self.settings['export']['default_directory'] = file_dir
-                # No longer save DPI to settings
+                # 不再保存DPI到settings
                 if self.parent:
                     self.parent.save_settings()
                 
-                # Show success message
-                QMessageBox.information(self, "Success", f"Plots successfully exported to:\n{', '.join(exported_files)}")
+                # 显示成功消息
+                QMessageBox.information(self, "成功", f"图表已成功导出至：\n" + "\n".join(exported_files))
                 
-                # Close dialog
-                self.accept()
+                # 关闭对话框
+                super().accept()
             else:
-                QMessageBox.warning(self, "Export Error", "An error occurred during export")
+                QMessageBox.warning(self, "导出错误", "导出过程中发生错误")
         
         except Exception as e:
-            print(f"Error during plot export: {e}")
-            QMessageBox.critical(self, "Export Error", f"An error occurred during plot export: {e}")
-            success = False
-        
-        if not success:
-            QMessageBox.warning(self, "Export Error", "An error occurred during export") 
+            QMessageBox.critical(self, "错误", f"导出图表失败: {e}")
+            print(f"导出图表失败: {e}")
+            import traceback
+            traceback.print_exc() 

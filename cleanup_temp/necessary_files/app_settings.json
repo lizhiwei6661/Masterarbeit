@@ -2,7 +2,7 @@
     "general": {
         "rho_lambda": 0.989,
         "gamut": "None",
-        "illuminant": "D50",
+        "illuminant": "D65",
         "rgb_values": "0 ... 1"
     },
     "plot": {
@@ -13,7 +13,7 @@
         "cie_height": 600,
         "reflectance_title": "Reflectance Spectra of Measured Samples",
         "cie_title": "CIE Chromaticity Diagram",
-        "reflectance_show_title": false,
+        "reflectance_show_title": true,
         "cie_show_title": true,
         "reflectance_show_legend": true,
         "cie_show_legend": true,
@@ -26,8 +26,5 @@
         "default_format": "xlsx",
         "include_header": true,
         "decimal_places": 6
-    },
-    "import": {
-        "default_directory": "/Users/zhiwei/Masterarbeit copy/Import_Sample"
     }
 }

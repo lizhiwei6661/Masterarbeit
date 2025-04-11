@@ -22,10 +22,10 @@ class ImportDialog(QDialog):
         self.ui = Ui_Dialog_import()
         self.ui.setupUi(self)
         
-        # Set window title
+        # 设置窗口标题
         self.setWindowTitle("Import Data")
 
-        # Initialize data storage
+        # 初始化数据存储
         self.black_reference_path = None
         self.white_reference_path = None
         self.black_reference_data = None
@@ -33,54 +33,54 @@ class ImportDialog(QDialog):
         self.measurement_files = []
         self.selected_measurements = []
         
-        # Initialize data model
+        # 初始化数据模型
         self.file_model = QStandardItemModel()
         self.ui.listView_import_file.setModel(self.file_model)
 
-        # Initialize matplotlib canvas - set a more suitable chart size
+        # 初始化 matplotlib 画布 - 设置更合适的图表尺寸
         self.figure = Figure(figsize=(5, 3.8), dpi=100)
         self.canvas = FigureCanvas(self.figure)
-        # Remove top toolbar (menubar)
+        # 移除顶部工具栏（menubar）
         # self.toolbar = NavigationToolbar(self.canvas, self)
         
-        # Give view_spec some padding to make the canvas slightly smaller
+        # 给view_spec添加内边距，使画布稍微缩小
         self.ui.view_spec.setContentsMargins(8, 8, 8, 8)
         
-        # Create layout, clear default margins
+        # 创建布局，清除默认边距
         layout = QVBoxLayout(self.ui.view_spec)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        # No longer add toolbar
+        # 不再添加工具栏
         # layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
         
-        # Configure chart initial layout - further increase bottom margins
+        # 配置图表的初始布局 - 进一步增加底部边距
         self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
         
-        # Initialize an empty chart to ensure axis labels are displayed
+        # 初始化一个空图表，确保坐标轴标签显示
         self.initialize_empty_plot()
         
-        # Add select/deselect all buttons
+        # 添加选择/取消选择所有按钮
         self.select_buttons_layout = QHBoxLayout()
         self.select_all_button = QPushButton("Select All")
         self.deselect_all_button = QPushButton("Deselect All")
         self.select_buttons_layout.addWidget(self.select_all_button)
         self.select_buttons_layout.addWidget(self.deselect_all_button)
         
-        # Create a container for these buttons
+        # 创建一个容器来放置这些按钮
         self.select_buttons_widget = QWidget()
         self.select_buttons_widget.setLayout(self.select_buttons_layout)
         
-        # Add buttons to the grid layout
+        # 将按钮添加到网格布局中
         self.ui.gridLayout_3.addWidget(self.select_buttons_widget, 11, 1, 1, 1)
         
-        # Rename OK button to Import Selected Data
+        # 重命名OK按钮为Import Selected Data
         self.ui.buttonBox_import.button(self.ui.buttonBox_import.StandardButton.Ok).setText("Import Selected Data")
 
-        # Initialize button state
+        # 初始化按钮状态
         self.update_buttons_state()
 
-        # Bind interaction events
+        # 绑定交互事件
         self.ui.comboBox_equp.currentIndexChanged.connect(self.update_buttons_state)
         self.ui.pushButton_black.clicked.connect(self.select_black_reference)
         self.ui.pushButton_white.clicked.connect(self.select_white_reference)
@@ -89,42 +89,42 @@ class ImportDialog(QDialog):
         self.select_all_button.clicked.connect(self.select_all_items)
         self.deselect_all_button.clicked.connect(self.deselect_all_items)
         
-        # Connect dialog buttons
+        # 连接对话框按钮
         self.ui.buttonBox_import.accepted.connect(self.accept)
         self.ui.buttonBox_import.rejected.connect(self.reject)
         
-        # Initialize empty chart
+        # 初始显示空图
         self.update_preview()
 
     def initialize_empty_plot(self):
-        """Initialize an empty plot with axes and labels."""
+        """初始化一个空的图表，显示坐标轴和标签"""
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         
-        # Set labels - consistent with update_preview
+        # 设置标签 - 与update_preview保持一致
         ax.set_xlabel("Wavelength [nm]", fontsize=6)
         ax.set_ylabel("Spectral Irradiance [W/sqm*nm]", fontsize=6)
         ax.tick_params(axis='both', which='major', labelsize=5)
         
-        # Set range
+        # 设置范围
         ax.set_xlim(380, 780)
         ax.set_ylim(0, 1.0)
         
-        # Add grid
+        # 添加网格
         ax.grid(True, linestyle='--', alpha=0.6)
         
-        # Ensure labels are displayed
+        # 确保标签显示
         self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
         
-        # Add blank data points to ensure chart initializes correctly
+        # 添加空白数据点，确保图表初始化正常
         ax.plot([380, 780], [0, 0], alpha=0)
         
-        # Refresh canvas
+        # 刷新画布
         self.canvas.draw()
 
     def update_buttons_state(self):
         """
-        Dynamically update button states based on the selected equipment type.
+        根据设备类型动态更新按钮状态。
         """
         selected_equipment = self.ui.comboBox_equp.currentText()
         if selected_equipment == "Aleksameter":
@@ -132,26 +132,25 @@ class ImportDialog(QDialog):
             self.ui.pushButton_black.setEnabled(True)
             self.ui.pushButton_white.setEnabled(True)
             self.ui.pushButton_clear_ref.setEnabled(True)
-            # Check if reference files are selected
+            # 检查是否已选择参考文件
             self.check_references_selected()
         elif selected_equipment == "Generic":
             print("Generic mode selected")
             self.ui.pushButton_black.setEnabled(False)
             self.ui.pushButton_white.setEnabled(False)
             self.ui.pushButton_clear_ref.setEnabled(False)
-            # Enable measurement data selection directly in Generic mode
+            # Generic模式下直接启用测量数据选择按钮
             self.ui.pushButton_select_data.setEnabled(True)
-            # Clear reference data
+            # 清除参考数据
             self.black_reference_path = None
             self.white_reference_path = None
-            # Clear preview plot
+            # 清除预览图
             self.figure.clear()
             self.canvas.draw()
 
     def check_references_selected(self):
         """
-        Check if both black and white reference files are selected.
-        If so, enable the measurement data selection button.
+        检查是否已选择黑白参考文件，如果都已选择则启用测量数据选择按钮
         """
         print(f"Black ref: {self.black_reference_path}, White ref: {self.white_reference_path}")
         if self.ui.comboBox_equp.currentText() == "Aleksameter":
@@ -162,7 +161,7 @@ class ImportDialog(QDialog):
 
     def select_black_reference(self):
         """
-        Select the black reference file.
+        选择黑色参考文件。
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Black Reference File", 
@@ -173,22 +172,19 @@ class ImportDialog(QDialog):
             print(f"Selected black reference: {file_path}")
             self.black_reference_path = file_path
             
-            # Load data
+            # 加载数据
             data = self.load_data_file(file_path)
             if data:
-                self.black_reference_data = data  # Store data for preview
-                self.update_preview()  # Update preview plot
+                self.black_reference_data = data  # 保存数据以便预览使用
+                self.update_preview()  # 更新预览图
                 self.check_references_selected()
-            else:
-                QMessageBox.warning(self, "Error", f"Failed to load black reference file: {os.path.basename(file_path)}")
-                self.black_reference_path = None # Reset path if loading failed
             
-            # Remember directory for next time
+            # 记住目录以便下次使用
             self.save_import_directory(os.path.dirname(file_path))
 
     def select_white_reference(self):
         """
-        Select the white reference file.
+        选择白色参考文件。
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select White Reference File", 
@@ -199,22 +195,19 @@ class ImportDialog(QDialog):
             print(f"Selected white reference: {file_path}")
             self.white_reference_path = file_path
             
-            # Load data
+            # 加载数据
             data = self.load_data_file(file_path)
             if data:
-                self.white_reference_data = data  # Store data for preview
-                self.update_preview()  # Update preview plot
+                self.white_reference_data = data  # 保存数据以便预览使用
+                self.update_preview()  # 更新预览图
                 self.check_references_selected()
-            else:
-                QMessageBox.warning(self, "Error", f"Failed to load white reference file: {os.path.basename(file_path)}")
-                self.white_reference_path = None # Reset path if loading failed
             
-            # Remember directory for next time
+            # 记住目录以便下次使用
             self.save_import_directory(os.path.dirname(file_path))
 
     def clear_reference(self):
         """
-        Clear reference data.
+        清除参考数据。
         """
         self.black_reference_path = None
         self.white_reference_path = None
@@ -226,7 +219,7 @@ class ImportDialog(QDialog):
 
     def select_measurements(self):
         """
-        Select measurement data files.
+        选择测量数据文件。
         """
         file_paths, _ = QFileDialog.getOpenFileNames(
             self, "Select Measurement Files", 
@@ -235,30 +228,17 @@ class ImportDialog(QDialog):
         )
         if file_paths:
             print(f"Selected measurements: {file_paths}")
-            # Check if any files failed to load
-            valid_files = []
-            failed_files = []
-            for fp in file_paths:
-                data = self.load_data_file(fp)
-                if data:
-                    valid_files.append(fp)
-                else:
-                    failed_files.append(os.path.basename(fp))
-            
-            self.measurement_files = valid_files
+            self.measurement_files = file_paths
             self.populate_file_list()
-            self.update_preview()  # Update preview with loaded files
+            self.update_preview()  # 使用统一的预览更新函数
             
-            if failed_files:
-                QMessageBox.warning(self, "Warning", f"The following files could not be loaded or parsed:\n\n" + "\n".join(failed_files))
-            
-            # Remember directory for next time
-            if self.measurement_files:
-                self.save_import_directory(os.path.dirname(self.measurement_files[0]))
+            # 记住目录以便下次使用
+            if file_paths:
+                self.save_import_directory(os.path.dirname(file_paths[0]))
 
     def populate_file_list(self):
         """
-        Fill file list and add checkboxes for each file.
+        填充文件列表，并为每个文件添加复选框。
         """
         print(f"Populating file list with {len(self.measurement_files)} files")
         self.file_model.clear()
@@ -266,20 +246,20 @@ class ImportDialog(QDialog):
             file_name = os.path.basename(file_path)
             item = QStandardItem(file_name)
             item.setCheckable(True)
-            item.setCheckState(Qt.CheckState.Checked)  # Default selected
-            item.setData(file_path, Qt.ItemDataRole.UserRole)  # Store full path
+            item.setCheckState(Qt.CheckState.Checked)  # 默认选中
+            item.setData(file_path, Qt.ItemDataRole.UserRole)  # 存储完整路径
             self.file_model.appendRow(item)
         
-        # Default all files are selected
+        # 默认所有文件都被选中
         self.selected_measurements = self.measurement_files.copy()
         
-        # Allow ListView items to be clicked to allow selection/deselection
+        # 让ListView项目可点击，以允许选择/取消选择
         self.ui.listView_import_file.setEditTriggers(QListView.EditTrigger.NoEditTriggers)
         self.ui.listView_import_file.clicked.connect(self.on_item_clicked)
 
     def on_item_clicked(self, index):
         """
-        Handle list item click event
+        处理列表项目点击事件
         """
         item = self.file_model.itemFromIndex(index)
         if item.checkState() == Qt.CheckState.Checked:
@@ -287,50 +267,50 @@ class ImportDialog(QDialog):
         else:
             item.setCheckState(Qt.CheckState.Checked)
         
-        # Update preview plot
+        # 更新预览图
         self.update_preview()
 
     def update_preview(self):
         """
-        Update preview plot, display black and white reference and selected measurement data
+        更新预览图，显示黑白参考和所选测量数据
         """
-        # Clear chart
+        # 清除图表
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         
-        # Set smaller font size
-        axis_label_size = 6  # Smaller axis labels
-        tick_label_size = 6  # Tick labels
-        legend_size = 6  # Chart legend font
+        # 设置较小的字体大小
+        axis_label_size = 6  # 坐标轴标签更小
+        tick_label_size = 6  # 刻度标签
+        legend_size = 6  # 图例字体
         
-        # Track successfully plotted data sets
+        # 跟踪成功绘制的数据集
         plot_count = 0  
         
-        # Set axis labels - display even if no data
+        # 设置坐标轴标签 - 无论是否有数据都显示
         ax.set_xlabel("Wavelength [nm]", fontsize=axis_label_size)
         ax.set_ylabel("Spectral Irradiance [W/sqm*nm]", fontsize=axis_label_size)
         
-        # Ensure X axis labels are displayed, using settings from __init__
+        # 确保X轴标签显示，使用与__init__相同的设置
         self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
         
-        # Add grid lines
+        # 添加网格线
         ax.grid(True, linestyle='--', alpha=0.6)
         
-        # Plot black reference data
+        # 绘制黑色参考数据
         if self.black_reference_data:
             wavelengths = self.black_reference_data['wavelengths']
             values = self.black_reference_data['values']
             ax.plot(wavelengths, values, 'k-', label="Black Reference", linewidth=1.5)
             plot_count += 1
         
-        # Plot white reference data
+        # 绘制白色参考数据
         if self.white_reference_data:
             wavelengths = self.white_reference_data['wavelengths']
             values = self.white_reference_data['values']
             ax.plot(wavelengths, values, 'k--', label="White Reference", linewidth=1.5)
             plot_count += 1
         
-        # Plot selected measurement data (up to 3)
+        # 绘制选定的测量数据 (最多显示3个)
         selected_measurements = self.get_selected_measurements()
         preview_count = min(len(selected_measurements), 3)
         
@@ -348,37 +328,37 @@ class ImportDialog(QDialog):
             except Exception as e:
                 print(f"Error previewing {file_path}: {e}")
         
-        # Add legend (if there is data)
+        # 添加图例（如果有数据）
         if plot_count > 0:
             ax.legend(loc='best', fontsize=legend_size, framealpha=0.7)
         
-        # Set X axis range to visible light range
+        # 设置X轴范围为可见光范围
         ax.set_xlim(380, 780)
         
-        # Display tick labels based on whether there is data
+        # 根据是否有数据设置刻度显示
         if plot_count > 0:
-            # There is data, display tick labels
+            # 有数据，显示刻度标签
             ax.tick_params(axis='both', which='major', labelsize=tick_label_size)
             
-            # Y axis auto scale - use automatic scaling
+            # Y轴自适应 - 使用自动缩放
             ax.autoscale(axis='y')
-            # Ensure Y axis lower limit is 0 (unless there are negatives)
+            # 确保Y轴下限为0（除非有负值）
             y_min, y_max = ax.get_ylim()
             if y_min >= 0:
                 ax.set_ylim(0, y_max)
         else:
-            # No data, hide tick labels but keep axis
+            # 无数据，隐藏刻度标签但保留坐标轴
             ax.tick_params(axis='both', which='both', 
-                          labelbottom=False, labelleft=False,  # Hide tick numbers
-                          length=0)  # Hide tick lines
+                          labelbottom=False, labelleft=False,  # 隐藏刻度数字
+                          length=0)  # 隐藏刻度线
             
-            # Use default range when there is no data
+            # 无数据时使用默认范围
             ax.set_ylim(0, 1.0)
         
-        # Refresh canvas
+        # 刷新画布
         self.canvas.draw()
         
-        # Connect size change event to ensure adaptation
+        # 连接尺寸变化事件，确保自适应
         try:
             self.canvas.mpl_disconnect(self._resize_id)
         except:
@@ -387,19 +367,19 @@ class ImportDialog(QDialog):
 
     def load_data_file(self, file_path):
         """
-        Load data file, handle file type appropriately.
+        加载数据文件，根据文件类型进行适当处理。
         """
         try:
-            # Choose different load method based on file extension
+            # 根据文件扩展名选择不同的加载方法
             ext = os.path.splitext(file_path)[1].lower()
             
-            # Handle CSV file (specifically for example format)
+            # 处理CSV文件（专门针对示例中的格式）
             if ext == '.csv':
                 print(f"Loading CSV file: {file_path}")
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     lines = f.readlines()
                 
-                # Find start of data section
+                # 查找数据部分开始的位置
                 data_start_index = -1
                 for i, line in enumerate(lines):
                     if line.startswith("Wavelength [nm],"):
@@ -408,7 +388,7 @@ class ImportDialog(QDialog):
                 
                 if data_start_index >= 0:
                     print(f"Found data section starting at line {data_start_index}")
-                    # Extract data
+                    # 提取数据
                     wavelengths = []
                     values = []
                     for line in lines[data_start_index:]:
@@ -424,18 +404,18 @@ class ImportDialog(QDialog):
                     
                     if wavelengths and values:
                         print(f"Extracted {len(wavelengths)} data points")
-                        # Ensure using numpy arrays
+                        # 确保使用numpy数组
                         return {
                             'wavelengths': np.array(wavelengths),
                             'values': np.array(values)
                         }
                 
-                # If above parsing fails, try regular CSV parsing
+                # 如果上述解析失败，尝试常规CSV解析
                 try:
                     data = pd.read_csv(file_path)
                     if len(data.columns) >= 2:
                         print(f"Fallback to pandas: {data.shape[0]} rows, {data.shape[1]} columns")
-                        # Ensure returning numpy arrays
+                        # 确保返回numpy数组
                         return {
                             'wavelengths': np.array(data.iloc[:, 0].values),
                             'values': np.array(data.iloc[:, 1].values)
@@ -445,13 +425,13 @@ class ImportDialog(QDialog):
                 
                 return None
                 
-            # Handle TXT file
+            # 处理TXT文件
             elif ext == '.txt':
                 print(f"Loading TXT file: {file_path}")
                 try:
-                    # Try using numpy's loadtxt
+                    # 尝试使用numpy的loadtxt
                     data = np.loadtxt(file_path)
-                    if data.shape[1] >= 2:  # Ensure at least two columns
+                    if data.shape[1] >= 2:  # 确保至少有两列
                         return {
                             'wavelengths': np.array(data[:, 0]),
                             'values': np.array(data[:, 1])
@@ -459,14 +439,14 @@ class ImportDialog(QDialog):
                 except Exception as ex:
                     print(f"Numpy loadtxt error: {ex}")
                     
-                # Try manual parsing
+                # 尝试手动解析
                 try:
                     wavelengths = []
                     values = []
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         for line in f:
                             try:
-                                # Try different delimiters
+                                # 尝试不同的分隔符
                                 if ',' in line:
                                     parts = line.strip().split(',')
                                 else:
@@ -490,9 +470,9 @@ class ImportDialog(QDialog):
                 
                 return None
                 
-            # Handle other file types
+            # 处理其他类型的文件
             else:
-                # Try using pandas to read
+                # 尝试使用pandas读取
                 try:
                     data = pd.read_csv(file_path, sep=None, engine='python')
                     if len(data.columns) >= 2:
@@ -506,45 +486,37 @@ class ImportDialog(QDialog):
                 return None
                 
             return None
-        except FileNotFoundError:
-            QMessageBox.warning(self, "Import Error", f"File not found: {file_path}")
-            return None
-        except pd.errors.ParserError:
-            QMessageBox.warning(self, "Import Error", f"Error parsing file: {file_path}. Ensure it is a valid CSV/TXT file with numeric data.")
-            return None
-        except ImportError:
-            QMessageBox.critical(self, "Import Error", "Optional dependency 'scipy' not found. Cannot load .mat files.")
-            return None
         except Exception as e:
-            QMessageBox.critical(self, "Import Error", f"An unexpected error occurred while loading {file_path}: {e}")
+            print(f"Error loading file {file_path}: {e}")
+            QMessageBox.warning(self, "Warning", f"Failed to load {file_path}: {e}")
             return None
 
     def select_all_items(self):
         """
-        Select all items.
+        选择所有项目。
         """
         print("Selecting all items")
         for row in range(self.file_model.rowCount()):
             item = self.file_model.item(row)
             item.setCheckState(Qt.CheckState.Checked)
         
-        # Update preview plot
+        # 更新预览图
         self.update_preview()
     
     def deselect_all_items(self):
         """
-        Deselect all items.
+        取消选择所有项目。
         """
         print("Deselecting all items")
         for row in range(self.file_model.rowCount()):
             item = self.file_model.item(row)
             item.setCheckState(Qt.CheckState.Unchecked)
         
-        # Update preview plot
+        # 更新预览图
         self.update_preview()
     
     def get_selected_measurements(self):
-        """Get current selected measurement file list"""
+        """获取当前选中的测量文件列表"""
         selected = []
         for row in range(self.file_model.rowCount()):
             item = self.file_model.item(row)
@@ -555,30 +527,28 @@ class ImportDialog(QDialog):
     
     def accept(self):
         """
-        Handle the OK button click.
-        Validates data and accepts the dialog.
+        确认导入数据。
         """
-        selected_equipment = self.ui.comboBox_equp.currentText()
-        self.selected_measurements = self.get_selected_measurements()
+        # 获取选中的测量文件列表
+        selected_measurements = self.get_selected_measurements()
         
-        if selected_equipment == "Aleksameter":
-            if not self.black_reference_path or not self.white_reference_path:
-                QMessageBox.warning(self, "Missing Reference", "Please select both black and white reference files.")
-                return
-            if not self.selected_measurements:
-                QMessageBox.warning(self, "Missing Measurements", "Please select at least one measurement file.")
-                return
-        elif selected_equipment == "Generic":
-            if not self.selected_measurements:
-                QMessageBox.warning(self, "Missing Measurements", "Please select at least one measurement file.")
-                return
+        # 检查是否有选中的测量数据
+        if not selected_measurements:
+            QMessageBox.warning(self, "警告", "未选择任何测量文件。")
+            return
         
-        print("Import dialog accepted.")
+        # 在Aleksameter模式下检查是否选择了参考文件
+        if self.ui.comboBox_equp.currentText() == "Aleksameter" and (not self.black_reference_path or not self.white_reference_path):
+            QMessageBox.warning(self, "警告", "在Aleksameter模式下必须选择黑白参考文件。")
+            return
+        
+        print("Import dialog accepting - data will be sent to main window")
+        # 调用父类的accept方法关闭对话框并返回Accepted
         super().accept()
 
     def get_import_directory(self):
-        """Get import directory, use cached if available, otherwise return default directory"""
-        # Try reading last import directory from settings
+        """获取导入目录，有缓存则使用缓存，否则返回默认目录"""
+        # 尝试从设置中读取上次的导入目录
         settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
         try:
             if os.path.exists(settings_file):
@@ -590,11 +560,11 @@ class ImportDialog(QDialog):
         except:
             pass
         
-        # Default directory
+        # 默认目录
         return os.path.expanduser('~')
     
     def save_import_directory(self, directory):
-        """Save import directory to settings"""
+        """保存导入目录到设置中"""
         settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
         try:
             settings = {}
@@ -615,9 +585,9 @@ class ImportDialog(QDialog):
 
     def get_selected_data(self):
         """
-        Get all selected data.
+        获取所有选中的数据。
         """
-        # Get selected measurement file list
+        # 获取选中的测量文件列表
         selected_measurements = self.get_selected_measurements()
         
         print(f"Selected data mode: {self.ui.comboBox_equp.currentText()}")
@@ -634,9 +604,9 @@ class ImportDialog(QDialog):
         return selected_data
 
     def _on_resize(self, event):
-        """Handle chart size change event"""
-        # Update to use same bottom margins
+        """处理图表尺寸变化事件"""
+        # 更新为使用相同的底部边距
         self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
             
-        # Redraw chart
+        # 重新绘制图表
         self.canvas.draw_idle()

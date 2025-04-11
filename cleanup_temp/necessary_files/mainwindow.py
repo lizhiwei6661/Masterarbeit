@@ -533,8 +533,8 @@ class MainWindow(QMainWindow):
             self.update_results_table()
             
             # 显示成功消息
-            QMessageBox.information(self, "Import Complete", 
-                                f"Successfully processed {len(self.data['results'])}/{len(measurements)} measurement files.")
+            QMessageBox.information(self, "导入完成", 
+                                f"成功处理 {len(self.data['results'])}/{len(measurements)} 个测量文件。")
                                 
             # 启用Export和Plot菜单选项
             self.update_menu_state(True)
@@ -1424,26 +1424,23 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Copy", "Table data copied to clipboard (excluding color column).")
     
     def clear_data(self):
-        """Clear all data"""
-        # Show confirmation dialog
+        """清空数据"""
+        if not self.data['results']:
+            return
+        
+        # 确认对话框
         reply = QMessageBox.question(
-            self,
-            "Confirm Clear",  # Window title
-            "Are you sure you want to clear all data? This action cannot be undone.",  # Message
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,  # Button options
-            QMessageBox.StandardButton.No  # Default button
+            self, 
+            "Clear Data", 
+            "Are you sure you want to clear all data?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+            QMessageBox.StandardButton.No
         )
-
+        
         if reply == QMessageBox.StandardButton.Yes:
-            print("User confirmed clearing data")
             self.reset_data()
-            self.update_reflectance_plot()
-            self.update_cie_plot()
-            self.ui.table_results.setRowCount(0)
-            self.update_menu_state(False)  # Disable Export and Plot
-            QMessageBox.information(self, "Data Cleared", "All data has been successfully cleared.")  # Success message
-        else:
-            print("User cancelled clearing data")
+            # 禁用Export和Plot菜单选项
+            self.update_menu_state(False)
     
     def show_reflectance_data(self):
         """显示反射率数据"""

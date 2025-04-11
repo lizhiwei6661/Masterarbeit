@@ -1,0 +1,16 @@
+{
+    "general": {
+        "language": "\u4e2d\u6587",
+        "p_n": 0.989,
+        "rgb_values_0_255": false,
+        "theme": "light",
+        "illuminant": "D65"
+    },
+    "import": {
+        "default_directory": "Import_Sample",
+        "default_mode": "Aleksameter"
+    },
+    "export": {
+        "default_directory": "."
+    }
+}
