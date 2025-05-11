@@ -33,6 +33,9 @@ class ImportDialog(QDialog):
         self.measurement_files = []
         self.selected_measurements = []
         
+        # 添加会话级变量记住最后使用的目录
+        self.last_directory = self.get_import_directory()
+        
         # Initialize data model
         self.file_model = QStandardItemModel()
         self.ui.listView_import_file.setModel(self.file_model)
@@ -74,6 +77,23 @@ class ImportDialog(QDialog):
         # Add buttons to the grid layout
         self.ui.gridLayout_3.addWidget(self.select_buttons_widget, 11, 1, 1, 1)
         
+        # 重新调整按钮位置
+        # 移除原有的按钮
+        self.ui.gridLayout_3.removeWidget(self.ui.pushButton_black)
+        self.ui.gridLayout_3.removeWidget(self.ui.pushButton_white)
+        self.ui.gridLayout_3.removeWidget(self.ui.pushButton_clear_ref)
+        
+        # 重新添加按钮，按照新的顺序
+        self.ui.gridLayout_3.addWidget(self.ui.pushButton_black, 7, 0, 1, 1)
+        self.ui.gridLayout_3.addWidget(self.ui.pushButton_white, 8, 0, 1, 1)
+        
+        # Add Swap reference data button
+        self.swap_reference_button = QPushButton("Swap Reference Data")
+        self.ui.gridLayout_3.addWidget(self.swap_reference_button, 9, 0, 1, 1)
+        
+        # 添加Clear按钮在最下面
+        self.ui.gridLayout_3.addWidget(self.ui.pushButton_clear_ref, 10, 0, 1, 1)
+        
         # Rename OK button to Import Selected Data
         self.ui.buttonBox_import.button(self.ui.buttonBox_import.StandardButton.Ok).setText("Import Selected Data")
 
@@ -88,6 +108,7 @@ class ImportDialog(QDialog):
         self.ui.pushButton_select_data.clicked.connect(self.select_measurements)
         self.select_all_button.clicked.connect(self.select_all_items)
         self.deselect_all_button.clicked.connect(self.deselect_all_items)
+        self.swap_reference_button.clicked.connect(self.swap_reference_data)
         
         # Connect dialog buttons
         self.ui.buttonBox_import.accepted.connect(self.accept)
@@ -132,6 +153,7 @@ class ImportDialog(QDialog):
             self.ui.pushButton_black.setEnabled(True)
             self.ui.pushButton_white.setEnabled(True)
             self.ui.pushButton_clear_ref.setEnabled(True)
+            self.swap_reference_button.setEnabled(True)
             # Check if reference files are selected
             self.check_references_selected()
         elif selected_equipment == "Generic":
@@ -139,6 +161,7 @@ class ImportDialog(QDialog):
             self.ui.pushButton_black.setEnabled(False)
             self.ui.pushButton_white.setEnabled(False)
             self.ui.pushButton_clear_ref.setEnabled(False)
+            self.swap_reference_button.setEnabled(False)
             # Enable measurement data selection directly in Generic mode
             self.ui.pushButton_select_data.setEnabled(True)
             # Clear reference data
@@ -159,6 +182,26 @@ class ImportDialog(QDialog):
                 self.ui.pushButton_select_data.setEnabled(True)
             else:
                 self.ui.pushButton_select_data.setEnabled(False)
+
+    def swap_reference_data(self):
+        """
+        Swap black and white reference data
+        """
+        if not self.black_reference_path or not self.white_reference_path:
+            QMessageBox.warning(self, "Warning", "Both black and white reference files must be selected before swapping.")
+            return
+        
+        # Swap file paths
+        self.black_reference_path, self.white_reference_path = self.white_reference_path, self.black_reference_path
+        
+        # Swap data
+        self.black_reference_data, self.white_reference_data = self.white_reference_data, self.black_reference_data
+        
+        # Update preview to reflect changes
+        self.update_preview()
+        
+        # Update button states (though shouldn't change in this case)
+        self.check_references_selected()
 
     def select_black_reference(self):
         """
@@ -578,6 +621,10 @@ class ImportDialog(QDialog):
 
     def get_import_directory(self):
         """Get import directory, use cached if available, otherwise return default directory"""
+        # 优先使用会话中记录的最后目录
+        if hasattr(self, 'last_directory') and self.last_directory:
+            return self.last_directory
+            
         # Try reading last import directory from settings
         settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
         try:
@@ -594,7 +641,11 @@ class ImportDialog(QDialog):
         return os.path.expanduser('~')
     
     def save_import_directory(self, directory):
-        """Save import directory to settings"""
+        """Save import directory to settings and update session variable"""
+        # 更新会话变量
+        self.last_directory = directory
+        
+        # 保存到设置文件
         settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
         try:
             settings = {}

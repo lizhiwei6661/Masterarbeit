@@ -1,0 +1,51 @@
+Zusammenfassung der Wellenlängenbereichsanalyse
+==============================================
+
+Ursprünglicher Wellenlängenbereich: 380-780nm
+Gekürzter Wellenlängenbereich: 400-750nm
+
+Bewertung der Farbfehler
+------------------------
+
+Die Farbfehler wurden mit folgenden Metriken bewertet:
+
+1. CIE XYZ-Farbwertdifferenzen
+2. CIE xy-Chromatizitätskoordinatendifferenzen
+3. sRGB-Farbdifferenzen
+4. CIE L*a*b* Farbdifferenzen
+5. CIE76 Delta E (ΔE) - Der Gesamtfarbunterschied
+
+Durchschnittliche Farbfehler:
+- XYZ-Differenz: (0.012545, 0.000783, 0.053270)
+- xy-Differenz: (0.000091, 0.000199)
+- sRGB-Differenz: (0.000096, 0.000071, 0.000513)
+- L*a*b*-Differenz: (0.000597, 0.038906, 0.068672)
+- Durchschnittliches ΔE: 0.079778
+
+Ursachen der Farbfehler:
+Die Farbfehler werden hauptsächlich durch den Abschnitt der spektralen Daten im langwelligen Bereich (750nm-780nm) und kurzwelligen Bereich (380nm-400nm) verursacht. Diese Wellenlängenbereiche tragen zur Farbwahrnehmung bei, auch wenn ihr Beitrag relativ gering ist. Die Tristimulus-Werte (XYZ) werden durch die Integration der spektralen Daten über den gesamten sichtbaren Bereich berechnet. Wenn ein Teil des Spektrums fehlt, führt dies zu leicht unterschiedlichen XYZ-Werten und damit zu abweichenden Farbwerten.
+
+Bei dieser Studie fehlen besonders:
+- Kurzwelliger Bereich (380nm-400nm): Dieser beeinflusst hauptsächlich die blaue Komponente (Z-Wert).
+- Langwelliger Bereich (750nm-780nm): Dieser beeinflusst hauptsächlich die rote Komponente (X-Wert).
+
+Proben mit den größten Farbunterschieden:
+1. Probe "S4": ΔE = 0.144207
+   - XYZ-Differenz: (0.027050, 0.001123, 0.122879)
+   - XYZ-Relative Differenz: (0.06%, 0.00%, 0.24%)
+2. Probe "r3s3": ΔE = 0.140564
+   - XYZ-Differenz: (0.011242, 0.000674, 0.048125)
+   - XYZ-Relative Differenz: (0.13%, 0.01%, 0.32%)
+3. Probe "S5": ΔE = 0.135581
+   - XYZ-Differenz: (0.023863, 0.001010, 0.108128)
+   - XYZ-Relative Differenz: (0.05%, 0.00%, 0.24%)
+4. Probe "S3": ΔE = 0.129761
+   - XYZ-Differenz: (0.024336, 0.001072, 0.109669)
+   - XYZ-Relative Differenz: (0.05%, 0.00%, 0.22%)
+5. Probe "r2s6": ΔE = 0.113487
+   - XYZ-Differenz: (0.010974, 0.000487, 0.049407)
+   - XYZ-Relative Differenz: (0.13%, 0.01%, 0.16%)
+
+Empfehlungen für die Praxis:
+Da die durchschnittliche Delta-E-Differenz von 0.079778 unter dem wahrnehmbaren Schwellenwert von 1,0 liegt, kann der gekürzete Wellenlängenbereich (400nm-750nm) für die meisten praktischen Anwendungen als ausreichend betrachtet werden. Die resultierenden Farbunterschiede sind für das menschliche Auge kaum wahrnehmbar.
+Für hochpräzise Farbmessungen sollte jedoch der vollständige Wellenlängenbereich (380nm-780nm) verwendet werden, um maximale Genauigkeit zu gewährleisten.

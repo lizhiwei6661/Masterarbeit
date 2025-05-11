@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QHeaderView, QFileDialog, QMenu, QColorDialog, QVBoxLayout, QDialog, QPushButton, QWidget, QSizePolicy
 )
 from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtGui import QAction, QColor, QPixmap, QIcon, QClipboard
+from PySide6.QtGui import QAction, QColor, QPixmap, QIcon, QClipboard, QScreen
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -29,82 +29,66 @@ from settings_dialog import SettingsDialog
 from about_dialog import AboutDialog
 from reflectance_data_dialog import ReflectanceDataDialog
 from color_calculator import ColorCalculator
+from cie_data_dialog import CIEDataDialog
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
+        """初始化主窗口"""
         super().__init__()
+        
+        # 初始化ui
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         
         # 设置窗口标题
         self.setWindowTitle("Aleksameter App")
         
+        # 设置初始窗口大小
+        self.resize(800, 600)  # 将窗口尺寸从900x700缩小到800x600
+        
+        # 初始化默认设置
+        self.settings = self.get_default_settings()
+        
+        # 从配置文件加载设置（会覆盖默认设置）
+        self.load_settings()
+        
         # 初始化颜色计算器
         self.color_calculator = ColorCalculator()
         
-        # 加载设置
-        self.settings = {
-            'general': {
-                'rho_lambda': 0.989,  # 默认值为0.989，与MATLAB一致
-                'gamut': 'sRGB',
-                'illuminant': 'D65',
-                'rgb_values': '0 ... 255',
-                'language': 'English'
-            },
-            'import': {
-                'default_directory': os.path.expanduser('~'),
-                'auto_preview': True,
-                'max_preview_files': 5
-            },
-            'plot': {
-                'reflectance_color': '#1f77b4',
-                'grid': True,
-                'legend': True,
-                'dpi': 300,
-                'reflectance_width': 800,
-                'reflectance_height': 600,
-                'cie_width': 600,
-                'cie_height': 600,
-                'reflectance_title': 'Reflectance',
-                'cie_title': 'CIE 1931 Chromaticity Diagram',
-                'reflectance_show_title': True,
-                'cie_show_title': True,
-                'reflectance_show_legend': True,
-                'cie_show_legend': True
-            },
-            'export': {
-                'default_directory': os.path.expanduser('~'),
-                'default_format': 'xlsx',
-                'include_header': True,
-                'decimal_places': 6,
-                'separator': 'Comma',
-                'copy_header': 'Yes'
-            }
-        }
+        # 设置rho_lambda值
+        self.color_calculator.set_rho_lambda(self.settings['general']['rho_lambda'])
         
-        # 加载设置
-        self.load_settings()
+        # 设置光源类型
+        self.color_calculator.set_illuminant(self.settings['general']['illuminant'])
         
-        # 初始化数据存储
+        # 初始化数据
         self.reset_data()
         
-        # 初始化界面
+        # 设置界面
         self.setup_ui()
         
-        # 绑定菜单动作
+        # 创建菜单动作
         self.connect_menu_actions()
         
-        # 绑定按钮事件
+        # 连接按钮动作
         self.connect_button_actions()
         
-        # 窗口大小改变时自动调整表格
-        self.resizeEvent = self.on_window_resize
+        # 初始化导入数据目录
+        self.import_directory = self.settings['import'].get('default_directory', None)
+        
+        # 将窗口放置在屏幕中心
+        center_point = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        fg = self.frameGeometry()
+        fg.moveCenter(center_point)
+        self.move(fg.topLeft())
+        
+        # 初始化对话框引用为None
+        self.reflectance_dialog = None
+        self.cie_dialog = None
         
         # 初始禁用Export和Plot菜单选项
         self.update_menu_state(False)
-        
-        print("应用程序已初始化")
     
     def reset_data(self):
         """重置数据存储"""
@@ -145,13 +129,13 @@ class MainWindow(QMainWindow):
     def setup_reflectance_plot(self):
         """设置反射率图表"""
         # 创建图表 - 使用更宽的宽高比
-        self.reflectance_figure = Figure(figsize=(7, 4.3), dpi=100)
+        self.reflectance_figure = Figure(figsize=(6.5, 3.5), dpi=100)
         self.reflectance_canvas = FigureCanvas(self.reflectance_figure)
         # 移除工具栏，用户不需要这个功能
         # self.reflectance_toolbar = NavigationToolbar(self.reflectance_canvas, self)
         
         # 为X轴标签预留足够空间，减少左右边距使图表更宽
-        self.reflectance_figure.subplots_adjust(bottom=0.2, left=0.08, right=0.95)
+        self.reflectance_figure.subplots_adjust(bottom=0.17, left=0.07, right=0.95, top=0.88)
         
         # 创建布局并添加到view_Reflections，使其占满整个widget
         self.reflectance_layout = QVBoxLayout(self.ui.view_Reflections)
@@ -169,8 +153,8 @@ class MainWindow(QMainWindow):
     
     def setup_cie_plot(self):
         """设置CIE图表"""
-        # 创建图表
-        self.cie_figure = Figure(figsize=(4, 4), dpi=100)
+        # 创建图表 - 使用更小的尺寸
+        self.cie_figure = Figure(figsize=(3.0, 3.0), dpi=100)
         self.cie_canvas = FigureCanvas(self.cie_figure)
         # 移除导航工具栏
         # self.cie_toolbar = NavigationToolbar(self.cie_canvas, self)
@@ -182,8 +166,8 @@ class MainWindow(QMainWindow):
         # self.cie_layout.addWidget(self.cie_toolbar)  # 不再添加导航工具栏
         self.cie_layout.addWidget(self.cie_canvas)
         
-        # 设置画布随widget大小自适应
-        self.cie_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # 设置画布随widget大小自适应，改为固定尺寸
+        self.cie_canvas.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         
         # 初始绘图
         self.update_cie_plot()
@@ -218,31 +202,31 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Interactive)  # sRGB Gamma列
         
         # 设置初始列宽 - 适应更大的字体
-        self.ui.table_results.setColumnWidth(0, 40)   # 颜色列宽度设为40，可自适应
-        self.ui.table_results.setColumnWidth(1, 130)  # 文件名列初始宽度
-        self.ui.table_results.setColumnWidth(2, 70)   # x列
-        self.ui.table_results.setColumnWidth(3, 70)   # y列
-        self.ui.table_results.setColumnWidth(4, 150)  # sRGB Linear列
-        self.ui.table_results.setColumnWidth(5, 150)  # sRGB Gamma列
+        self.ui.table_results.setColumnWidth(0, 30)   # 颜色列宽度减小
+        self.ui.table_results.setColumnWidth(1, 120)  # 文件名列宽度减小
+        self.ui.table_results.setColumnWidth(2, 65)   # x列宽度减小
+        self.ui.table_results.setColumnWidth(3, 65)   # y列宽度减小
+        self.ui.table_results.setColumnWidth(4, 140)  # sRGB Linear列宽度减小
+        self.ui.table_results.setColumnWidth(5, 140)  # sRGB Gamma列宽度减小
         
         # 设置行高
-        self.ui.table_results.verticalHeader().setDefaultSectionSize(22)  # 调整行高为22像素
+        self.ui.table_results.verticalHeader().setDefaultSectionSize(20)  # 调整行高为20像素（更紧凑）
         self.ui.table_results.verticalHeader().setVisible(False)  # 隐藏垂直表头
         
         # 设置表格样式
         self.ui.table_results.setStyleSheet("""
             QTableWidget {
                 gridline-color: #d0d0d0;
-                font-size: 10pt;
+                font-size: 9pt;
             }
             QHeaderView::section {
                 background-color: #f0f0f0;
-                padding: 3px;
-                font-size: 10pt;
+                padding: 2px;
+                font-size: 9pt;
                 border: 1px solid #d0d0d0;
             }
             QTableWidget::item {
-                padding: 3px;
+                padding: 2px;
             }
         """)
         
@@ -309,6 +293,9 @@ class MainWindow(QMainWindow):
         """连接按钮事件"""
         self.ui.pushButton_show_Reflections_Data.clicked.connect(self.show_reflectance_data)
         self.ui.pushButton_copydata.clicked.connect(self.copy_table_data)
+        self.ui.pushButton_show_CIE_Data.clicked.connect(self.show_cie_data)
+        # 修改按钮文本
+        self.ui.pushButton_show_CIE_Data.setText("Show CIE Diagram")
     
     def load_settings(self):
         """加载设置"""
@@ -326,11 +313,21 @@ class MainWindow(QMainWindow):
                 print(f"设置已从 {settings_file} 加载")
             else:
                 print(f"设置文件 {settings_file} 不存在或为空，使用默认设置")
+                # 获取默认设置
+                default_settings = self.get_default_settings()
+                # 用默认值初始化设置中缺失的部分
+                for category in default_settings:
+                    if category not in self.settings:
+                        self.settings[category] = {}
+                    for key, value in default_settings[category].items():
+                        if key not in self.settings[category]:
+                            self.settings[category][key] = value
                 # 创建默认设置文件
                 self.save_settings()
         except Exception as e:
             print(f"Error loading settings: {str(e)}")
-            # 创建默认设置文件
+            # 使用默认设置并创建设置文件
+            self.settings = self.get_default_settings()
             self.save_settings()
     
     def save_settings(self):
@@ -342,7 +339,53 @@ class MainWindow(QMainWindow):
             print(f"设置已保存到 {settings_file}")
         except Exception as e:
             print(f"Error saving settings: {str(e)}")
-
+            
+    def get_default_settings(self):
+        """获取默认设置"""
+        return {
+            'general': {
+                'illuminant': 'D65',  # D65是默认光源
+                'rgb_values': '0 ... 1',  # RGB值默认显示为0-1的小数
+                'rho_lambda': 0.989,  # rho_lambda默认为0.989
+                'gamut': 'None'  # 默认不显示色域
+            },
+            'plot': {
+                'reflectance_width': 1600,  # 设置宽度为1600
+                'reflectance_height': 800,  # 设置高度为800
+                'cie_width': 900,  # 设置宽度为900
+                'cie_height': 900,  # 设置高度为900
+                'reflectance_title': 'Reflectance Spectra of Measured Samples',
+                'cie_title': 'CIE Chromaticity Diagram',
+                'reflectance_show_title': True,
+                'cie_show_title': True,
+                'reflectance_show_legend': True,
+                'cie_show_legend': True,
+                'reflectance_color': '#1f77b4'  # 默认蓝色
+            },
+            'export': {
+                'separator': 'Point',
+                'copy_header': 'Yes',
+                'default_directory': os.path.expanduser('~'),
+                'default_format': 'xlsx',
+                'include_header': True,
+                'decimal_places': 6
+            },
+            'import': {
+                'default_directory': os.path.expanduser('~')
+            },
+            'plot_export': {
+                'dpi_index': 1,  # 默认300 DPI (index 1)
+                'format_index': 0,  # 默认PNG格式 (index 0)
+                'export_reflectance': True,
+                'export_cie': True
+            },
+            'export_dialog': {
+                'format_index': 0,  # 默认Excel格式 (index 0)
+                'export_rho': True,
+                'export_color': True
+            }
+        }
+    
     def open_import_dialog(self):
         """打开导入对话框"""
         dialog = ImportDialog(self)
@@ -367,7 +410,7 @@ class MainWindow(QMainWindow):
         """处理导入的数据"""
         if not import_data or not 'mode' in import_data:
             print("导入数据无效，未包含处理模式")
-            QMessageBox.warning(self, "警告", "导入的数据无效，请重试。")
+            QMessageBox.warning(self, "Warning", "Invalid import data. Please try again.")
             return
         
         mode = import_data['mode']
@@ -382,7 +425,7 @@ class MainWindow(QMainWindow):
         print(f"测量文件数量: {len(measurement_paths)}")
         
         if not measurement_paths:
-            QMessageBox.warning(self, "警告", "未选择测量文件。")
+            QMessageBox.warning(self, "Warning", "No measurement files selected.")
             return
         
         # 重置数据
@@ -407,16 +450,16 @@ class MainWindow(QMainWindow):
             white_ref = self.load_data_from_file(white_reference_path)
             
             if black_ref is None or white_ref is None:
-                error_msg = "无法加载参考文件。"
+                error_msg = "Cannot load reference files."
                 print(f"错误: {error_msg}")
-                QMessageBox.warning(self, "警告", error_msg)
+                QMessageBox.warning(self, "Warning", error_msg)
                 return
                 
             # 检查参考数据是否有效
             if 'wavelengths' not in black_ref or 'values' not in black_ref or 'wavelengths' not in white_ref or 'values' not in white_ref:
-                error_msg = "参考文件格式无效。"
+                error_msg = "Invalid reference file format."
                 print(f"错误: {error_msg}")
-                QMessageBox.warning(self, "警告", error_msg)
+                QMessageBox.warning(self, "Warning", error_msg)
                 return
                 
             # 设置校准模式
@@ -433,6 +476,8 @@ class MainWindow(QMainWindow):
         
         # 加载测量数据
         measurements = []
+        self.data['file_names'] = []  # 清空文件名列表
+        
         for path in measurement_paths:
             try:
                 print(f"加载测量文件: {os.path.basename(path)}")
@@ -458,12 +503,12 @@ class MainWindow(QMainWindow):
                     'wavelengths': data['wavelengths'].copy()
                 }
             except Exception as e:
-                error_msg = f"加载文件 {path} 时出错: {str(e)}"
+                error_msg = f"Error loading file {path}: {str(e)}"
                 print(f"错误: {error_msg}")
-                QMessageBox.warning(self, "警告", error_msg)
+                QMessageBox.warning(self, "Warning", error_msg)
         
         if not measurements:
-            QMessageBox.warning(self, "警告", "无有效的测量文件。")
+            QMessageBox.warning(self, "Warning", "No valid measurement files.")
             return
         
         print(f"处理 {len(measurements)} 个测量文件...")
@@ -532,12 +577,46 @@ class MainWindow(QMainWindow):
             self.update_cie_plot()
             self.update_results_table()
             
+            # 更新扩展CIE图表窗口（如果已打开）
+            if self.cie_dialog is not None and self.cie_dialog.isVisible():
+                print("更新扩展CIE图表窗口...")
+                self.update_expanded_cie_plot()
+            
             # 显示成功消息
             QMessageBox.information(self, "Import Complete", 
                                 f"Successfully processed {len(self.data['results'])}/{len(measurements)} measurement files.")
                                 
             # 启用Export和Plot菜单选项
             self.update_menu_state(True)
+            
+            # 如果反射率数据对话框已打开，更新其内容
+            if self.reflectance_dialog is not None and self.reflectance_dialog.isVisible():
+                try:
+                    displayed_wavelengths = self.data['original_wavelengths'] if self.data['original_wavelengths'] is not None else self.data['wavelengths']
+                    
+                    # 准备数据集字典，正确提取反射率数据
+                    processed_datasets = {}
+                    for name, reflectance_data in self.data['reflectance'].items():
+                        # 检查数据格式
+                        if isinstance(reflectance_data, dict):
+                            # 优先使用1nm步长的数据
+                            if 'reflectance_1nm' in reflectance_data and len(reflectance_data['reflectance_1nm']) > 0:
+                                processed_datasets[name] = reflectance_data['reflectance_1nm']
+                            # 其次使用原始反射率数据
+                            elif 'reflectance' in reflectance_data:
+                                processed_datasets[name] = reflectance_data['reflectance']
+                        else:
+                            # 旧格式：直接是数据数组
+                            processed_datasets[name] = reflectance_data
+                    
+                    # 更新对话框
+                    self.reflectance_dialog.update_data(displayed_wavelengths, processed_datasets)
+                    print("反射率数据对话框已更新")
+                except Exception as e:
+                    print(f"更新反射率数据对话框时出错: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                
         except Exception as e:
             error_msg = f"更新界面时出错: {str(e)}"
             print(f"错误: {error_msg}")
@@ -666,17 +745,17 @@ class MainWindow(QMainWindow):
         
         # 设置标题（根据设置决定是否显示）
         show_title = self.settings['plot'].get('reflectance_show_title', True)
-        title_text = self.settings['plot'].get('reflectance_title', "Reflectance Spectra")
+        title_text = self.settings['plot'].get('reflectance_title', "Reflectance Spectra of Measured Samples")
         
-        if show_title:
-            ax.set_title(title_text, fontsize=9)
-        else:
-            print("反射率图表标题已被设置为不显示")
+        # 强制显示标题，无论settings如何设置
+        ax.set_title(title_text, fontsize=10)  # 恢复为原来的大小
+        if not show_title:
+            print("反射率图表标题已被设置为不显示，但当前已强制显示")
         
         # 设置其他基本属性
-        ax.set_xlabel("Wavelength (nm)", fontsize=8)
-        ax.set_ylabel("$\\rho$", fontsize=8)
-        ax.tick_params(axis='both', which='major', labelsize=7)
+        ax.set_xlabel("Wavelength (nm)", fontsize=8)  # 恢复为原来的大小
+        ax.set_ylabel("$\\rho$", fontsize=8)  # 恢复为原来的大小
+        ax.tick_params(axis='both', which='major', labelsize=7)  # 恢复为原来的大小
         
         # 设置X轴范围
         ax.set_xlim(380, 780)
@@ -764,7 +843,7 @@ class MainWindow(QMainWindow):
         # 创建子图
         ax = self.cie_figure.add_subplot(111)
         
-        # 设置默认字体大小
+        # 设置默认字体大小 - 恢复原来的字体大小设置
         tick_size = 8
         label_size = 9
         wavelength_label_size = 6  # 波长标签使用更小的字体
@@ -1187,7 +1266,7 @@ class MainWindow(QMainWindow):
         """打开图表导出对话框"""
         # 检查是否有可以导出的数据
         if not hasattr(self, 'reflectance_figure') or not hasattr(self, 'cie_figure'):
-            QMessageBox.warning(self, "警告", "没有可用的图表。")
+            QMessageBox.warning(self, "Warning", "No charts available.")
             return
         
         # 创建并显示图表导出对话框
@@ -1229,16 +1308,27 @@ class MainWindow(QMainWindow):
             for name, action in self.gamut_actions.items():
                 action.setChecked(name == gamut)
         
+        # 无论是否有数据，都立即更新反射率图表和CIE图表，应用新的标题和显示设置
+        if hasattr(self, 'reflectance_canvas'):
+            print("立即更新反射率图表应用新设置...")
+            self.update_reflectance_plot()
+            
         # 更新CIE图表显示，确保光源点显示正确
-        self.update_cie_plot()
+        if hasattr(self, 'cie_canvas'):
+            self.update_cie_plot()
         
         # 检查是否已经有计算结果，如果有且不需要重新计算，则直接更新表格
         if self.data['results'] and self.settings['general'].get('rgb_values') is not None:
             # 如果只是RGB格式改变，不需要重新计算，只需要更新表格
             self.update_results_table()
         
-        # 重新计算并更新显示（当rho_lambda或光源改变时）
-        self.recalculate_results()
+        # 仅当有原始数据且设置变化需要重新计算时，才重新计算
+        if self.data['raw_measurements'] and (illuminant != self.color_calculator.illuminant or 
+                                             rho_lambda != self.color_calculator.rho_lambda):
+            print("设置变化需要重新计算颜色值...")
+            self.recalculate_results()
+        else:
+            print("无需重新计算数据")
     
     def recalculate_results(self):
         """重新计算所有结果，使用原始测量数据"""
@@ -1285,6 +1375,11 @@ class MainWindow(QMainWindow):
         self.update_reflectance_plot()
         self.update_cie_plot()
         self.update_results_table()
+        
+        # 更新扩展CIE图表窗口（如果已打开）
+        if self.cie_dialog is not None and self.cie_dialog.isVisible():
+            print("重新计算后更新扩展CIE图表窗口...")
+            self.update_expanded_cie_plot()
         
         print(f"成功重新计算 {len(self.data['results'])} 个结果")
     
@@ -1441,6 +1536,17 @@ class MainWindow(QMainWindow):
             self.update_cie_plot()
             self.ui.table_results.setRowCount(0)
             self.update_menu_state(False)  # Disable Export and Plot
+            
+            # 如果反射率数据对话框打开，关闭它
+            if self.reflectance_dialog is not None and self.reflectance_dialog.isVisible():
+                self.reflectance_dialog.close()
+                self.reflectance_dialog = None
+            
+            # 如果CIE图表窗口打开，关闭它
+            if self.cie_dialog is not None and self.cie_dialog.isVisible():
+                self.cie_dialog.close()
+                self.cie_dialog = None
+                
             QMessageBox.information(self, "Data Cleared", "All data has been successfully cleared.")  # Success message
         else:
             print("User cancelled clearing data")
@@ -1522,11 +1628,17 @@ class MainWindow(QMainWindow):
         if not datasets:
             QMessageBox.warning(self, "Warning", "No valid reflectance data to show.")
             return
-            
-        # 打开对话框
-        dialog = ReflectanceDataDialog(wavelengths, datasets, self)
-        dialog.exec()
-
+        
+        # 检查对话框是否已经存在
+        if self.reflectance_dialog is None or not self.reflectance_dialog.isVisible():
+            # 创建新对话框
+            self.reflectance_dialog = ReflectanceDataDialog(wavelengths, datasets, self)
+            # 使用show()而不是exec()，使对话框非模态
+            self.reflectance_dialog.show()
+        else:
+            # 更新现有对话框数据
+            self.reflectance_dialog.update_data(wavelengths, datasets)
+    
     def on_window_resize(self, event):
         """窗口大小改变时调整表格列宽"""
         # 调用父类的resizeEvent
@@ -1547,11 +1659,11 @@ class MainWindow(QMainWindow):
         header = self.ui.table_results.horizontalHeader()
         
         # 颜色列宽度
-        color_width = 40  # 增加到40以适应"CLR"
+        color_width = 25  # 减小颜色列宽度
         
         # 首先计算文件名列所需的实际宽度（基于内容）
         max_filename_width = 0
-        filename_padding = 20  # 文件名周围的padding，可调整这个值使其更紧凑
+        filename_padding = 15  # 减小文件名周围的padding
         
         # 获取字体度量来计算文本宽度
         font_metrics = self.ui.table_results.fontMetrics()
@@ -1568,20 +1680,20 @@ class MainWindow(QMainWindow):
                 max_filename_width = max(max_filename_width, text_width)
         
         # 取表头和内容的最大宽度
-        filename_width = max(max_filename_width, header_width, 100)  # 至少100像素
+        filename_width = max(max_filename_width, header_width, 80)  # 至少80像素
                 
         # 计算其他列所需的固定空间
         fixed_width = color_width
         for col in [2, 3, 4, 5]:  # x, y, sRGB Linear, sRGB Gamma列
             if col == 2 or col == 3:  # x和y列
-                width = max(70, header.sectionSize(col))  # 确保x和y列至少70像素
+                width = max(60, header.sectionSize(col))  # 确保x和y列至少60像素
             else:  # RGB列
-                width = max(150, header.sectionSize(col))  # 至少150像素
+                width = max(120, header.sectionSize(col))  # 至少120像素
             fixed_width += width
         
         # 检查文件名列的宽度是否会超出可用空间
         available_width = table_width - fixed_width - 5  # 减5像素作为缓冲
-        if filename_width > available_width and available_width >= 100:
+        if filename_width > available_width and available_width >= 80:
             # 如果超出可用空间但可用空间足够显示基本内容，则使用可用空间
             filename_width = available_width
         
@@ -1598,16 +1710,343 @@ class MainWindow(QMainWindow):
         self.ui.table_results.setColumnWidth(1, filename_width)
         
         # 设置其他列的宽度
-        self.ui.table_results.setColumnWidth(2, max(70, header.sectionSize(2)))  # x列
-        self.ui.table_results.setColumnWidth(3, max(70, header.sectionSize(3)))  # y列
-        self.ui.table_results.setColumnWidth(4, max(150, header.sectionSize(4)))  # sRGB Linear列
-        self.ui.table_results.setColumnWidth(5, max(150, header.sectionSize(5)))  # sRGB Gamma列
+        self.ui.table_results.setColumnWidth(2, max(60, header.sectionSize(2)))  # x列
+        self.ui.table_results.setColumnWidth(3, max(60, header.sectionSize(3)))  # y列
+        self.ui.table_results.setColumnWidth(4, max(120, header.sectionSize(4)))  # sRGB Linear列
+        self.ui.table_results.setColumnWidth(5, max(120, header.sectionSize(5)))  # sRGB Gamma列
 
     def update_menu_state(self, has_data):
         """更新菜单状态"""
         if hasattr(self, 'ui'):
             self.ui.actionExport.setEnabled(has_data)
             self.ui.actionPlot.setEnabled(has_data)
+
+    def show_cie_data(self):
+        """显示CIE色度图的放大视图，而不是数据表格"""
+        # 不再检查是否有数据，直接显示CIE图表
+        
+        # 检查对话框是否已存在
+        if self.cie_dialog is None or not self.cie_dialog.isVisible():
+            # 创建一个新的对话框窗口
+            self.cie_dialog = QDialog(self)
+            self.cie_dialog.setWindowTitle("CIE Chromaticity Diagram")
+            self.cie_dialog.resize(900, 900)  # 增大尺寸从600x600到900x900
+            
+            # 获取父窗口的位置和大小
+            parent_geometry = self.geometry()
+            parent_x = parent_geometry.x()
+            parent_y = parent_geometry.y()
+            parent_width = parent_geometry.width()
+            
+            # 将窗口放在主窗口右侧
+            self.cie_dialog.setGeometry(parent_x + parent_width + 10, parent_y, 900, 900)  # 更新尺寸
+            
+            # 创建布局
+            layout = QVBoxLayout(self.cie_dialog)
+            
+            # 创建图形和画布 - 增大尺寸
+            self.cie_expanded_figure = Figure(figsize=(10, 10), dpi=100)  # 增大从8x8到10x10
+            self.cie_expanded_canvas = FigureCanvas(self.cie_expanded_figure)
+            
+            # 添加画布到布局
+            layout.addWidget(self.cie_expanded_canvas)
+            
+            # 更新CIE图表
+            self.update_expanded_cie_plot()
+            
+            # 显示非模态对话框
+            self.cie_dialog.show()
+        else:
+            # 如果对话框已经存在，更新图表
+            self.update_expanded_cie_plot()
+            # 确保窗口可见
+            self.cie_dialog.show()
+            self.cie_dialog.raise_()
+    
+    def update_expanded_cie_plot(self):
+        """更新放大版CIE图表"""
+        if not hasattr(self, 'cie_expanded_figure') or not hasattr(self, 'cie_expanded_canvas'):
+            return
+            
+        # 清除图表
+        self.cie_expanded_figure.clear()
+        
+        # 创建子图
+        ax = self.cie_expanded_figure.add_subplot(111)
+        
+        # 设置字体大小 - 调整为适应高分辨率
+        title_size = 12
+        label_size = 10
+        tick_size = 9
+        wavelength_label_size = 8
+        annotation_size = 8
+        legend_size = 9
+        
+        # 使用与主窗口相同的绘图逻辑，但调整部分参数使其更清晰
+        try:
+            # 禁用警告消息
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # 首先绘制色度图的彩色背景
+                plot_chromaticity_diagram_colours(
+                    axes=ax,
+                    diagram_colours="RGB",  # 使用RGB颜色
+                    method="CIE 1931",  # 使用CIE 1931方法
+                    standalone=False,  # 不独立绘图
+                    title=False,  # 不使用默认标题
+                    bounding_box=(0, 0.8, 0, 0.9)  # 与原设置一致
+                )
+                
+                # 获取光谱轨迹线的数据点
+                cmfs = colour.colorimetry.MSDS_CMFS['CIE 1931 2 Degree Standard Observer']
+                XYZ = cmfs.values
+                xy = colour.XYZ_to_xy(XYZ)
+                wavelengths = cmfs.wavelengths
+                
+                # 创建波长到坐标的映射
+                wavelength_dict = {wl: (x, y) for wl, (x, y) in zip(wavelengths, xy)}
+                
+                # 定义我们想要标记的波长范围（460-620nm，每20nm一个标记）
+                custom_wavelength_labels = list(range(460, 640, 20))
+                
+                # 创建平滑的边界线
+                from scipy.interpolate import interp1d
+                
+                # 光谱轨迹线
+                x_locus = np.append(xy[..., 0], xy[0, 0])
+                y_locus = np.append(xy[..., 1], xy[0, 1])
+                
+                # 创建参数化的坐标
+                t = np.linspace(0, 1, len(x_locus))
+                
+                # 创建插值函数
+                fx = interp1d(t, x_locus, kind='cubic')
+                fy = interp1d(t, y_locus, kind='cubic')
+                
+                # 生成更密集的点
+                t_new = np.linspace(0, 1, 1000)
+                x_smooth = fx(t_new)
+                y_smooth = fy(t_new)
+                
+                # 绘制光谱边界线
+                ax.plot(
+                    x_smooth, 
+                    y_smooth, 
+                    color='black', 
+                    linewidth=1.2,  # 稍微加粗
+                    solid_capstyle='round',
+                    zorder=10
+                )
+                
+                # 紫色线
+                purple_line = np.vstack([
+                    [xy[-1, 0], xy[-1, 1]],
+                    [xy[0, 0], xy[0, 1]]
+                ])
+                
+                # 绘制紫色线
+                ax.plot(
+                    purple_line[:, 0], 
+                    purple_line[:, 1], 
+                    color='black', 
+                    linewidth=1.2,  # 稍微加粗
+                    linestyle='--',
+                    zorder=10
+                )
+                
+                # 绘制色域
+                gamut = self.settings['general']['gamut']
+                
+                # 根据选择的色域定义相应顶点
+                if gamut == 'None':
+                    pass
+                elif gamut == 'sRGB':
+                    r = (0.64, 0.33)
+                    g = (0.30, 0.60)
+                    b = (0.15, 0.06)
+                elif gamut == 'Adobe RGB':
+                    r = (0.64, 0.33)
+                    g = (0.21, 0.71)
+                    b = (0.15, 0.06)
+                elif gamut == 'HTC VIVE Pro Eye':
+                    r = (0.6585, 0.3407)
+                    g = (0.2326, 0.7119)
+                    b = (0.1431, 0.0428)
+                elif gamut == 'Meta Oculus Quest 1':
+                    r = (0.6596, 0.3396)
+                    g = (0.2395, 0.7069)
+                    b = (0.1452, 0.0531)
+                elif gamut == 'Meta Oculus Quest 2':
+                    r = (0.6364, 0.3305)
+                    g = (0.3032, 0.5938)
+                    b = (0.1536, 0.0632)
+                elif gamut == 'Meta Oculus Rift':
+                    r = (0.6690, 0.3300)
+                    g = (0.2545, 0.7015)
+                    b = (0.1396, 0.0519)
+                else:
+                    # 默认使用sRGB
+                    r = (0.64, 0.33)
+                    g = (0.30, 0.60)
+                    b = (0.15, 0.06)
+                
+                # 绘制色域多边形
+                if gamut != 'None':
+                    x_points = [r[0], g[0], b[0], r[0]]
+                    y_points = [r[1], g[1], b[1], r[1]]
+                    
+                    ax.plot(x_points, y_points, '-', color='black', linewidth=1.2, 
+                           zorder=30, label=gamut)
+                    
+                    # 添加图例
+                    ax.legend(fontsize=legend_size, loc='upper right', frameon=True)
+                
+                # 绘制光源点
+                illuminant = self.settings['general']['illuminant']
+                
+                # 常见光源坐标
+                illuminant_coords = {
+                    'D65': (0.3128, 0.3290),
+                    'D50': (0.3457, 0.3585),
+                    'A': (0.4476, 0.4074),
+                    'E': (1/3, 1/3)
+                }
+                
+                # 绘制当前光源点
+                if illuminant in illuminant_coords:
+                    x_illum, y_illum = illuminant_coords[illuminant]
+                    
+                    ax.plot(x_illum, y_illum, 'o', color='black', markersize=6, 
+                           markerfacecolor='none', markeredgewidth=1.2, zorder=50)
+                    
+                    # 添加光源标注
+                    ax.annotate(
+                        f"{illuminant}",
+                        (x_illum + 0.02, y_illum + 0.02),
+                        fontsize=annotation_size,
+                        color='black',
+                        ha='left',
+                        va='bottom',
+                        zorder=50
+                    )
+                
+                # 添加波长标记
+                for wl in custom_wavelength_labels:
+                    if wl in wavelength_dict:
+                        x, y = wavelength_dict[wl]
+                        
+                        # 计算偏移方向
+                        center = np.array([1/3, 1/3])
+                        point = np.array([x, y])
+                        direction = point - center
+                        
+                        # 标准化方向向量
+                        direction = direction / np.linalg.norm(direction)
+                        
+                        # 调整特定波长的偏移
+                        if wl == 460:
+                            offset = np.array([-0.02, 0.02])
+                        elif wl == 540:
+                            offset = np.array([0.07, 0.03])
+                        elif wl == 620:
+                            offset = np.array([0.03, 0.05])
+                        else:
+                            offset = direction * 0.015
+                        
+                        # 绘制波长点
+                        ax.plot(x, y, 'o', color='black', markersize=3, zorder=15)
+                        
+                        # 确定文本对齐方式
+                        h_align = 'left' if direction[0] > 0 else 'right'
+                        v_align = 'bottom' if direction[1] > 0 else 'top'
+                        
+                        # 添加波长标签
+                        ax.annotate(
+                            f"{wl}",
+                            (x + offset[0], y + offset[1]),
+                            fontsize=wavelength_label_size,
+                            color='black',
+                            ha=h_align,
+                            va=v_align,
+                            zorder=15,
+                            bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.1')
+                        )
+                        
+                # 仅当有数据时绘制数据点
+                if self.data['results']:
+                    # 绘制数据点 - 使用更大的点以方便在大图上查看
+                    for result in self.data['results']:
+                        x, y = result['x'], result['y']
+                        hex_color = result['hex_color']
+                        # 为大视图增大点的尺寸
+                        ax.plot(x, y, 'o', color=hex_color, markersize=8, markeredgecolor='black', 
+                              markeredgewidth=1.2, zorder=100)
+                        
+                        # 添加数据点标签
+                        file_name = result['file_name']
+                        if '.' in file_name:
+                            file_name = file_name.split('.')[0]  # 移除扩展名
+                        
+                        ax.annotate(
+                            file_name,
+                            (x + 0.02, y - 0.02),
+                            fontsize=annotation_size,
+                            color='black',
+                            ha='left',
+                            va='top',
+                            zorder=100,
+                            bbox=dict(facecolor='white', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.1')
+                        )
+                
+        except Exception as e:
+            print(f"Error drawing expanded CIE chart: {e}")
+            # 回退到简化版绘图
+            self.draw_simplified_cie_boundary(ax)
+        
+        # 设置标题和轴标签
+        ax.set_title("CIE 1931 Chromaticity Diagram", fontsize=title_size)
+        ax.set_xlabel("x", fontsize=label_size)
+        ax.set_ylabel("y", fontsize=label_size)
+        
+        # 设置轴范围
+        ax.set_xlim(0, 0.8)
+        ax.set_ylim(0, 0.9)
+        
+        # 设置刻度
+        ax.set_xticks(np.arange(0, 0.9, 0.1))
+        ax.tick_params(axis='x', which='major', labelsize=tick_size)
+        
+        ax.set_yticks(np.arange(0, 1.0, 0.1))
+        ax.tick_params(axis='y', which='major', labelsize=tick_size)
+        
+        # 禁用网格
+        ax.grid(False)
+        
+        # 调整布局
+        self.cie_expanded_figure.tight_layout()
+        
+        # 更新画布
+        self.cie_expanded_canvas.draw()
+    
+    def draw_simplified_cie_boundary(self, ax):
+        """为扩展CIE图表绘制简化版边界（备用方法）"""
+        # 使用简化的CIE边界点
+        boundary_x = [0.1740, 0.0000, 0.0000, 0.0332, 0.0648, 0.0919, 0.1390, 0.1738, 0.2080, 0.2586, 0.3230, 0.3962, 0.4400, 0.4699, 0.4999, 0.5140, 0.5295, 0.5482, 0.5651, 0.5780, 0.5832, 0.5800, 0.5672, 0.5314, 0.4649, 0.3652, 0.2615, 0.1740]
+        boundary_y = [0.0049, 0.0000, 0.0100, 0.0380, 0.0650, 0.0910, 0.2080, 0.2737, 0.3344, 0.4077, 0.4964, 0.5574, 0.5800, 0.5888, 0.5991, 0.6039, 0.6089, 0.6128, 0.6150, 0.6160, 0.6160, 0.6155, 0.6123, 0.6030, 0.5657, 0.4679, 0.2624, 0.0049]
+        
+        # 绘制边界
+        ax.plot(boundary_x, boundary_y, 'k-', linewidth=1.5)
+        
+        # 填充范围
+        ax.fill(boundary_x, boundary_y, alpha=0.1, color='gray')
+        
+        # 绘制数据点
+        for result in self.data['results']:
+            x, y = result['x'], result['y']
+            hex_color = result['hex_color']
+            ax.plot(x, y, 'o', color=hex_color, markersize=8, markeredgecolor='black', 
+                   markeredgewidth=1.2, zorder=100)
 
 
 if __name__ == "__main__":

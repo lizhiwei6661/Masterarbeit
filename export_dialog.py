@@ -27,22 +27,18 @@ class ExportDialog(QDialog):
         self.ui = Ui_Dialog_export()
         self.ui.setupUi(self)
         
+        # 确保settings中有export_dialog部分
+        if 'export_dialog' not in self.settings:
+            self.settings['export_dialog'] = {}
+        
         # Set default filename and path
         default_dir = self.settings['export']['default_directory']
         default_filename = "export_data.xlsx" # Default to Excel
         self.ui.lineEdit_Export_File.setText(os.path.join(default_dir, default_filename))
         
-        # Set default export format from settings
-        default_format = self.settings['export'].get('default_format', 'xlsx').lower()
-        if default_format == 'xlsx':
-            self.ui.comboBox_Export_Format.setCurrentIndex(0)
-        elif default_format == 'csv':
-            self.ui.comboBox_Export_Format.setCurrentIndex(1)
-        elif default_format == 'txt':
-            self.ui.comboBox_Export_Format.setCurrentIndex(2)
-        elif default_format == 'json':
-            self.ui.comboBox_Export_Format.setCurrentIndex(3)
-            
+        # 从设置中加载上次的选择
+        self.load_previous_selections()
+        
         # Connect format change signal to update default extension
         self.ui.comboBox_Export_Format.currentIndexChanged.connect(self.update_default_extension)
         
@@ -57,6 +53,24 @@ class ExportDialog(QDialog):
         self.ui.checkBox_Export_Rho.stateChanged.connect(self.check_selection)
         self.ui.checkBox_Export_Color.stateChanged.connect(self.check_selection)
         self.check_selection() # Initial check
+    
+    def load_previous_selections(self):
+        """从设置中加载上次的选择"""
+        export_dialog_settings = self.settings.get('export_dialog', {})
+        
+        # 设置文件格式
+        format_index = export_dialog_settings.get('format_index', 0)  # 默认为Excel (index 0)
+        self.ui.comboBox_Export_Format.setCurrentIndex(format_index)
+        
+        # 设置选择的数据类型
+        export_rho = export_dialog_settings.get('export_rho', True)
+        export_color = export_dialog_settings.get('export_color', True)
+        
+        self.ui.checkBox_Export_Rho.setChecked(export_rho)
+        self.ui.checkBox_Export_Color.setChecked(export_color)
+        
+        # 更新文件名扩展名以匹配选择的格式
+        self.update_default_extension()
     
     def check_selection(self):
         """Ensure at least one data type is selected."""
@@ -167,6 +181,16 @@ class ExportDialog(QDialog):
         if success:
             # 保存导出目录到设置
             self.settings['export']['default_directory'] = os.path.dirname(file_path)
+            
+            # 保存当前选择到设置中
+            self.settings['export_dialog']['format_index'] = format_idx
+            self.settings['export_dialog']['export_rho'] = export_rho
+            self.settings['export_dialog']['export_color'] = export_color
+            
+            # 同时更新默认格式
+            self.settings['export']['default_format'] = ['xlsx', 'csv', 'txt', 'json'][format_idx]
+            
+            # 保存设置
             if self.parent:
                 self.parent.save_settings()
             
@@ -322,29 +346,108 @@ class ExportDialog(QDialog):
             # Get original wavelength data
             wavelengths = self.data.get('original_wavelengths', None)
             if export_rho and wavelengths is None:
-                 # Use 5nm wavelengths as fallback if original not available
+                # Use 5nm wavelengths as fallback if original not available
                 if 'wavelengths' in self.data:
                     wavelengths = self.data['wavelengths']
                     print("Warning: Original wavelengths not found, using 5nm interpolated wavelengths for rho export.")
                 else:
                     QMessageBox.critical(self, "Export Error", "Wavelength data not found. Cannot export reflectance data.")
                     return False
-
-            # Create CSV content
-            # ... existing code ...
+                
+            # Get list of filenames
+            file_names = []
+            for result in self.data['results']:
+                if result['file_name'] not in file_names:
+                    file_names.append(result['file_name'])
             
-            # ... existing code ...
+            # Create CSV content
+            csv_data = ""
+            
+            # Export reflectance data if selected
+            if export_rho:
+                # Create header row
+                header = f"Lambda{separator}"
+                for file_name in file_names:
+                    # Remove file extension for column headers
+                    base_name = os.path.splitext(file_name)[0]
+                    header += f"{base_name}{separator}"
+                csv_data += header.rstrip(separator) + "\n"
+                
+                # Add data rows
+                for i, wavelength in enumerate(wavelengths):
+                    row = f"{wavelength:.1f}{separator}"
+                    for file_name in file_names:
+                        if file_name in self.data['reflectance']:
+                            reflectance_data = self.data['reflectance'][file_name]
+                            reflectance_value = None
+                            
+                            # Try to extract reflectance data
+                            if isinstance(reflectance_data, dict):
+                                if 'reflectance_1nm' in reflectance_data and len(reflectance_data['reflectance_1nm']) > i:
+                                    reflectance_value = reflectance_data['reflectance_1nm'][i]
+                                elif 'reflectance' in reflectance_data and len(reflectance_data['reflectance']) > i:
+                                    reflectance_value = reflectance_data['reflectance'][i]
+                            elif isinstance(reflectance_data, np.ndarray) and len(reflectance_data) > i:
+                                reflectance_value = reflectance_data[i]
+                            
+                            if reflectance_value is not None:
+                                row += f"{reflectance_value:.6f}{separator}"
+                            else:
+                                row += f"0.000000{separator}"
+                        else:
+                            row += f"0.000000{separator}"
+                    csv_data += row.rstrip(separator) + "\n"
+            
+            # Export color data if selected
+            if export_color:
+                # Add a separator line if both types are exported
+                if export_rho:
+                    csv_data += "\n"
+                
+                # Create header row for color data
+                header = f"File{separator}x{separator}y{separator}"
+                header += f"R (lin){separator}G (lin){separator}B (lin){separator}"
+                header += f"R (gamma){separator}G (gamma){separator}B (gamma)"
+                csv_data += header + "\n"
+                
+                # Add color data rows
+                for result in self.data['results']:
+                    # Remove file extension
+                    base_name = os.path.splitext(result['file_name'])[0]
+                    
+                    # Create row with file name and chromaticity coordinates
+                    row = f"{base_name}{separator}{result['x']:.6f}{separator}{result['y']:.6f}{separator}"
+                    
+                    # Add RGB linear values
+                    row += f"{result['rgb_linear'][0]:.6f}{separator}"
+                    row += f"{result['rgb_linear'][1]:.6f}{separator}"
+                    row += f"{result['rgb_linear'][2]:.6f}{separator}"
+                    
+                    # Add RGB gamma values (0-255 range)
+                    r_gamma = min(255, round(result['rgb_gamma'][0] * 255))
+                    row += f"{r_gamma}{separator}"
+                    row += f"{round(result['rgb_gamma'][1] * 255)}{separator}"
+                    row += f"{round(result['rgb_gamma'][2] * 255)}"
+                    
+                    csv_data += row + "\n"
+            
+            # Write data to file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(csv_data)
+            
+            print(f"Data successfully exported to {file_path}")
+            return True
+            
         except Exception as e:
             QMessageBox.critical(self, "CSV Export Error", f"An error occurred while exporting to CSV: {e}")
             return False
-        return True
     
     def export_to_txt(self, file_path, export_rho=True, export_color=True):
         """Export data to a TXT file, handling potential file access issues."""
         try:
-             # Determine the separator based on settings
-            separator = ',' if self.settings['export'].get('separator', 'Comma') == 'Comma' else '.'
-            decimal = '.' if separator == ',' else ',' # Use opposite for decimal
+            # Determine the separator based on settings
+            separator = '\t'  # Use tab for TXT files
+            decimal = '.'     # Always use period for decimal
             include_header = self.settings['export'].get('include_header', True)
             
             # Get original wavelength data
@@ -357,15 +460,96 @@ class ExportDialog(QDialog):
                 else:
                     QMessageBox.critical(self, "Export Error", "Wavelength data not found. Cannot export reflectance data.")
                     return False
-
-            # Create TXT content
-            # ... existing code ...
+                
+            # Get list of filenames
+            file_names = []
+            for result in self.data['results']:
+                if result['file_name'] not in file_names:
+                    file_names.append(result['file_name'])
             
-            # ... existing code ...
+            # Create TXT content
+            txt_data = ""
+            
+            # Export reflectance data if selected
+            if export_rho:
+                # Create header row if enabled
+                if include_header:
+                    header = f"Lambda{separator}"
+                    for file_name in file_names:
+                        # Remove file extension for column headers
+                        base_name = os.path.splitext(file_name)[0]
+                        header += f"{base_name}{separator}"
+                    txt_data += header.rstrip(separator) + "\n"
+                
+                # Add data rows
+                for i, wavelength in enumerate(wavelengths):
+                    row = f"{wavelength:.1f}{separator}"
+                    for file_name in file_names:
+                        if file_name in self.data['reflectance']:
+                            reflectance_data = self.data['reflectance'][file_name]
+                            reflectance_value = None
+                            
+                            # Try to extract reflectance data
+                            if isinstance(reflectance_data, dict):
+                                if 'reflectance_1nm' in reflectance_data and len(reflectance_data['reflectance_1nm']) > i:
+                                    reflectance_value = reflectance_data['reflectance_1nm'][i]
+                                elif 'reflectance' in reflectance_data and len(reflectance_data['reflectance']) > i:
+                                    reflectance_value = reflectance_data['reflectance'][i]
+                            elif isinstance(reflectance_data, np.ndarray) and len(reflectance_data) > i:
+                                reflectance_value = reflectance_data[i]
+                            
+                            if reflectance_value is not None:
+                                row += f"{reflectance_value:.6f}{separator}"
+                            else:
+                                row += f"0.000000{separator}"
+                        else:
+                            row += f"0.000000{separator}"
+                    txt_data += row.rstrip(separator) + "\n"
+            
+            # Export color data if selected
+            if export_color:
+                # Add a separator line if both types are exported
+                if export_rho:
+                    txt_data += "\n"
+                
+                # Create header row for color data
+                if include_header:
+                    header = f"File{separator}x{separator}y{separator}"
+                    header += f"R (lin){separator}G (lin){separator}B (lin){separator}"
+                    header += f"R (gamma){separator}G (gamma){separator}B (gamma)"
+                    txt_data += header + "\n"
+                
+                # Add color data rows
+                for result in self.data['results']:
+                    # Remove file extension
+                    base_name = os.path.splitext(result['file_name'])[0]
+                    
+                    # Create row with file name and chromaticity coordinates
+                    row = f"{base_name}{separator}{result['x']:.6f}{separator}{result['y']:.6f}{separator}"
+                    
+                    # Add RGB linear values
+                    row += f"{result['rgb_linear'][0]:.6f}{separator}"
+                    row += f"{result['rgb_linear'][1]:.6f}{separator}"
+                    row += f"{result['rgb_linear'][2]:.6f}{separator}"
+                    
+                    # Add RGB gamma values (0-255 range)
+                    r_gamma = min(255, round(result['rgb_gamma'][0] * 255))
+                    row += f"{r_gamma}{separator}"
+                    row += f"{round(result['rgb_gamma'][1] * 255)}{separator}"
+                    row += f"{round(result['rgb_gamma'][2] * 255)}"
+                    
+                    txt_data += row + "\n"
+            
+            # Write data to file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(txt_data)
+            
+            print(f"Data successfully exported to {file_path}")
+            return True
+            
         except Exception as e:
-             QMessageBox.critical(self, "TXT Export Error", f"An error occurred while exporting to TXT: {e}")
-             return False
-        return True
+            QMessageBox.critical(self, "TXT Export Error", f"An error occurred while exporting to TXT: {e}")
+            return False
     
     def export_to_json(self, file_path, export_rho=True, export_color=True):
         """Export data to a JSON file."""
@@ -382,12 +566,95 @@ class ExportDialog(QDialog):
                 else:
                     QMessageBox.critical(self, "Export Error", "Wavelength data not found. Cannot export reflectance data.")
                     return False
-
-            # Prepare reflectance data if selected
-            # ... existing code ...
+                
+            # Get list of filenames
+            file_names = []
+            for result in self.data['results']:
+                if result['file_name'] not in file_names:
+                    file_names.append(result['file_name'])
             
-            # ... existing code ...
+            # Prepare reflectance data if selected
+            if export_rho:
+                # Convert NumPy arrays to lists for JSON serialization
+                wavelengths_list = wavelengths.tolist() if isinstance(wavelengths, np.ndarray) else list(wavelengths)
+                export_data['wavelengths'] = wavelengths_list
+                
+                # Add reflectance data for each file
+                reflectance_data = {}
+                for file_name in file_names:
+                    if file_name in self.data['reflectance']:
+                        # Remove file extension
+                        base_name = os.path.splitext(file_name)[0]
+                        
+                        # Extract reflectance values
+                        ref_data = self.data['reflectance'][file_name]
+                        if isinstance(ref_data, dict):
+                            if 'reflectance_1nm' in ref_data and len(ref_data['reflectance_1nm']) == len(wavelengths):
+                                values = ref_data['reflectance_1nm'].tolist() if isinstance(ref_data['reflectance_1nm'], np.ndarray) else list(ref_data['reflectance_1nm'])
+                                reflectance_data[base_name] = values
+                            elif 'reflectance' in ref_data and len(ref_data['reflectance']) == len(wavelengths):
+                                values = ref_data['reflectance'].tolist() if isinstance(ref_data['reflectance'], np.ndarray) else list(ref_data['reflectance'])
+                                reflectance_data[base_name] = values
+                        elif isinstance(ref_data, np.ndarray) and len(ref_data) == len(wavelengths):
+                            values = ref_data.tolist() if isinstance(ref_data, np.ndarray) else list(ref_data)
+                            reflectance_data[base_name] = values
+                
+                export_data['reflectance'] = reflectance_data
+            
+            # Prepare color data if selected
+            if export_color:
+                color_data = []
+                for result in self.data['results']:
+                    # Remove file extension
+                    base_name = os.path.splitext(result['file_name'])[0]
+                    
+                    # Format RGB values
+                    rgb_linear = result['rgb_linear']
+                    rgb_gamma = result['rgb_gamma']
+                    
+                    # Create color record
+                    color_record = {
+                        'file_name': base_name,
+                        'x': result['x'],
+                        'y': result['y'],
+                        'rgb_linear': {
+                            'r': rgb_linear[0],
+                            'g': rgb_linear[1],
+                            'b': rgb_linear[2]
+                        },
+                        'rgb_gamma': {
+                            'r': min(1.0, rgb_gamma[0]),  # Cap at 1.0
+                            'g': rgb_gamma[1],
+                            'b': rgb_gamma[2]
+                        },
+                        'rgb_gamma_255': {
+                            'r': min(255, int(rgb_gamma[0] * 255)),
+                            'g': int(rgb_gamma[1] * 255),
+                            'b': int(rgb_gamma[2] * 255)
+                        },
+                        'hex_color': result['hex_color']
+                    }
+                    
+                    color_data.append(color_record)
+                
+                export_data['color'] = color_data
+            
+            # Add metadata
+            export_data['metadata'] = {
+                'export_date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'illuminant': self.settings['general']['illuminant'],
+                'rho_lambda': self.settings['general']['rho_lambda'],
+                'gamut': self.settings['general']['gamut']
+            }
+            
+            # Write to JSON file
+            import json
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2)
+            
+            print(f"Data successfully exported to {file_path}")
+            return True
+            
         except Exception as e:
-             QMessageBox.critical(self, "JSON Export Error", f"An error occurred while exporting to JSON: {e}")
-             return False
-        return True 
+            QMessageBox.critical(self, "JSON Export Error", f"An error occurred while exporting to JSON: {e}")
+            return False 

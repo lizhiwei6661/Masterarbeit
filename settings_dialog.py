@@ -134,10 +134,10 @@ class SettingsDialog(QDialog):
             },
             'plot': {
                 'dpi': 300,
-                'reflectance_width': 800,
-                'reflectance_height': 600,
-                'cie_width': 600,
-                'cie_height': 600,
+                'reflectance_width': 1600,  # 设置宽度为1600
+                'reflectance_height': 800,  # 保持高度为800
+                'cie_width': 900,  # 增加宽度从600到900
+                'cie_height': 900,  # 增加高度从600到900
                 'reflectance_title': 'Reflectance Spectra of Measured Samples',  # 更新默认标题
                 'cie_title': 'CIE Chromaticity Diagram',  # 更新默认标题
                 'reflectance_show_title': True,

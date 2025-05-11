@@ -59,6 +59,9 @@ class ReflectanceDataDialog(QDialog):
         button_container = QWidget()
         button_container.setLayout(button_layout)
         layout.addWidget(button_container)
+        
+        # 设置对话框标志，允许与主窗口交互
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
     
     def setup_table_style(self):
         """设置表格样式，与主窗口表格一致"""
@@ -100,13 +103,21 @@ class ReflectanceDataDialog(QDialog):
         num_rows = len(self.wavelengths)
         self.table.setRowCount(num_rows)
         
-        # 设置表头
-        headers = ["Lambda (nm)"] + list(self.datasets.keys())
+        # 设置表头，移除文件名的.csv后缀
+        headers = ["Lambda (nm)"]
+        for filename in self.datasets.keys():
+            # 移除文件名后缀
+            display_name = filename
+            if display_name.lower().endswith('.csv'):
+                display_name = display_name[:-4]
+            headers.append(display_name)
+        
         self.table.setHorizontalHeaderLabels(headers)
         
-        # 填充波长数据
+        # 填充波长数据，不显示小数点
         for row, wavelength in enumerate(self.wavelengths):
-            wavelength_item = QTableWidgetItem(f"{wavelength:.2f}")
+            # 将波长显示为整数
+            wavelength_item = QTableWidgetItem(f"{int(wavelength)}")
             wavelength_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(row, 0, wavelength_item)
             
@@ -122,6 +133,28 @@ class ReflectanceDataDialog(QDialog):
         
         # 设置列宽 - 初始设置
         self.adjust_columns()
+    
+    def update_data(self, wavelengths, datasets):
+        """更新表格数据，用于当主窗口数据变化时刷新"""
+        try:
+            # 安全地更新数据
+            self.wavelengths = wavelengths
+            self.datasets = datasets
+            
+            print(f"正在更新反射率数据对话框: {len(wavelengths)}个波长, {len(datasets)}个数据集")
+            
+            # 检查每个数据集的长度是否与波长匹配
+            for name, values in datasets.items():
+                if len(values) != len(wavelengths):
+                    print(f"警告: 数据集'{name}'的长度({len(values)})与波长长度({len(wavelengths)})不匹配")
+            
+            # 重新填充表格
+            self.populate_table()
+            print("反射率数据对话框更新成功")
+        except Exception as e:
+            print(f"更新反射率数据对话框数据时出错: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def adjust_columns(self):
         """调整列宽以适应内容和窗口大小"""

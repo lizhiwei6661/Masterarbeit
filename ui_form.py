@@ -12,71 +12,157 @@ from PySide6 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(795, 614)
+        MainWindow.resize(800, 600)  # 将窗口尺寸从900x700缩小到800x600
         MainWindow.setUnifiedTitleAndToolBarOnMac(False)
+        
+        # 创建中央窗口部件
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
-        self.gridLayout.setContentsMargins(13, -1, -1, 10)
-        self.gridLayout.setVerticalSpacing(0)
-        self.gridLayout.setObjectName("gridLayout")
-        self.groupBox_table = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_table.setTitle("")
-        self.groupBox_table.setFlat(True)
-        self.groupBox_table.setObjectName("groupBox_table")
-        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox_table)
-        self.verticalLayout_2.setContentsMargins(9, 16, 12, -1)
-        self.verticalLayout_2.setSpacing(13)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.table_results = QtWidgets.QTableWidget(self.groupBox_table)
-        self.table_results.setShowGrid(True)
-        self.table_results.setColumnCount(5)
+        
+        # 创建主布局
+        self.mainLayout = QtWidgets.QVBoxLayout(self.centralwidget)
+        self.mainLayout.setObjectName("mainLayout")
+        self.mainLayout.setContentsMargins(8, 8, 8, 12)  # 减小边距
+        self.mainLayout.setSpacing(8)  # 减小间距
+        
+        # 创建反射率显示区域
+        self.reflectanceGroup = QtWidgets.QGroupBox(self.centralwidget)
+        self.reflectanceGroup.setTitle("")
+        self.reflectanceGroup.setFlat(True)
+        self.reflectanceGroup.setObjectName("reflectanceGroup")
+        
+        self.reflectanceLayout = QtWidgets.QVBoxLayout(self.reflectanceGroup)
+        self.reflectanceLayout.setContentsMargins(0, 0, 0, 0)
+        self.reflectanceLayout.setSpacing(5)
+        self.reflectanceLayout.setObjectName("reflectanceLayout")
+        
+        # 添加反射率视图
+        self.view_Reflections = QtWidgets.QGraphicsView(self.reflectanceGroup)
+        self.view_Reflections.setObjectName("view_Reflections")
+        self.view_Reflections.setMinimumHeight(200)  # 减小最小高度
+        self.view_Reflections.setMaximumHeight(250)  # 添加最大高度限制
+        self.reflectanceLayout.addWidget(self.view_Reflections)
+        
+        # 添加"Show Reflections Data"按钮
+        self.reflectanceButtonLayout = QtWidgets.QHBoxLayout()
+        self.reflectanceButtonLayout.setObjectName("reflectanceButtonLayout")
+        self.reflectanceButtonLayout.addStretch()
+        
+        self.pushButton_show_Reflections_Data = QtWidgets.QPushButton(self.reflectanceGroup)
+        self.pushButton_show_Reflections_Data.setObjectName("pushButton_show_Reflections_Data")
+        self.reflectanceButtonLayout.addWidget(self.pushButton_show_Reflections_Data)
+        
+        self.reflectanceLayout.addLayout(self.reflectanceButtonLayout)
+        
+        # 添加反射率组到主布局
+        self.mainLayout.addWidget(self.reflectanceGroup)
+        
+        # 创建下半部分布局
+        self.bottomLayout = QtWidgets.QHBoxLayout()
+        self.bottomLayout.setObjectName("bottomLayout")
+        self.bottomLayout.setSpacing(8)  # 减小组件间距
+        
+        # 左侧CIE视图组 - 减小尺寸
+        self.cieGroup = QtWidgets.QGroupBox(self.centralwidget)
+        self.cieGroup.setTitle("")
+        self.cieGroup.setFlat(True)
+        self.cieGroup.setObjectName("cieGroup")
+        self.cieGroup.setMinimumWidth(280)  # 进一步减小最小宽度
+        self.cieGroup.setMaximumWidth(300)  # 进一步减小最大宽度
+        # 添加最大高度限制
+        self.cieGroup.setMaximumHeight(320)
+        
+        self.cieLayout = QtWidgets.QVBoxLayout(self.cieGroup)
+        self.cieLayout.setContentsMargins(0, 0, 0, 0)
+        self.cieLayout.setSpacing(5)
+        self.cieLayout.setObjectName("cieLayout")
+        
+        # 添加CIE视图 - 调整尺寸
+        self.view_colorSpace = QtWidgets.QGraphicsView(self.cieGroup)
+        self.view_colorSpace.setObjectName("view_colorSpace")
+        self.view_colorSpace.setMinimumSize(QtCore.QSize(280, 280))  # 减小最小尺寸
+        self.view_colorSpace.setMaximumSize(QtCore.QSize(300, 300))  # 减小最大尺寸限制
+        self.view_colorSpace.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)  # 改为固定尺寸
+        self.cieLayout.addWidget(self.view_colorSpace)
+        
+        # 添加"Show CIE Diagram"按钮 - 右对齐
+        self.cieButtonLayout = QtWidgets.QHBoxLayout()
+        self.cieButtonLayout.setObjectName("cieButtonLayout")
+        self.cieButtonLayout.addStretch()
+        
+        self.pushButton_show_CIE_Data = QtWidgets.QPushButton(self.cieGroup)
+        self.pushButton_show_CIE_Data.setObjectName("pushButton_show_CIE_Data")
+        self.pushButton_show_CIE_Data.setText("Show CIE Diagram")
+        self.cieButtonLayout.addWidget(self.pushButton_show_CIE_Data)
+        
+        self.cieLayout.addLayout(self.cieButtonLayout)
+        
+        # 添加CIE组到底部布局，减小比例
+        self.bottomLayout.addWidget(self.cieGroup, 1)
+        
+        # 右侧表格组 - 调整尺寸和策略
+        self.tableGroup = QtWidgets.QGroupBox(self.centralwidget)
+        self.tableGroup.setTitle("")
+        self.tableGroup.setFlat(True)
+        self.tableGroup.setObjectName("tableGroup")
+        self.tableGroup.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)  # 改为固定高度
+        self.tableGroup.setMaximumHeight(320)  # 减小最大高度限制
+        
+        self.tableLayout = QtWidgets.QVBoxLayout(self.tableGroup)
+        self.tableLayout.setContentsMargins(0, 0, 0, 0)
+        self.tableLayout.setSpacing(5)
+        self.tableLayout.setObjectName("tableLayout")
+        
+        # 添加表格视图 - 设置合理的最大高度
+        self.table_results = QtWidgets.QTableWidget(self.tableGroup)
         self.table_results.setObjectName("table_results")
+        self.table_results.setColumnCount(6)
         self.table_results.setRowCount(0)
-        item = QtWidgets.QTableWidgetItem()
-        self.table_results.setHorizontalHeaderItem(0, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.table_results.setHorizontalHeaderItem(1, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.table_results.setHorizontalHeaderItem(2, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.table_results.setHorizontalHeaderItem(3, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.table_results.setHorizontalHeaderItem(4, item)
+        self.table_results.setMaximumHeight(280)  # 减小表格最大高度
+        
+        headers = ["CLR", "File Name", "x", "y", "sRGB Linear", "sRGB Gamma"]
+        for i, header in enumerate(headers):
+            item = QtWidgets.QTableWidgetItem()
+            item.setText(header)
+            self.table_results.setHorizontalHeaderItem(i, item)
+        
         self.table_results.horizontalHeader().setCascadingSectionResizes(False)
-        self.table_results.horizontalHeader().setDefaultSectionSize(93)
+        self.table_results.horizontalHeader().setDefaultSectionSize(85)  # 减小默认列宽
         self.table_results.horizontalHeader().setMinimumSectionSize(20)
         self.table_results.verticalHeader().setCascadingSectionResizes(False)
-        self.table_results.verticalHeader().setDefaultSectionSize(30)
-        self.verticalLayout_2.addWidget(self.table_results)
-        self.pushButton_copydata = QtWidgets.QPushButton(self.groupBox_table)
+        self.table_results.verticalHeader().setDefaultSectionSize(22)  # 进一步减小默认行高
+        
+        self.tableLayout.addWidget(self.table_results)
+        
+        # 添加"Copy to Clipboard"按钮
+        self.tableButtonLayout = QtWidgets.QHBoxLayout()
+        self.tableButtonLayout.setObjectName("tableButtonLayout")
+        self.tableButtonLayout.addStretch()
+        
+        self.pushButton_copydata = QtWidgets.QPushButton(self.tableGroup)
         self.pushButton_copydata.setObjectName("pushButton_copydata")
-        self.verticalLayout_2.addWidget(self.pushButton_copydata, 0, QtCore.Qt.AlignmentFlag.AlignRight)
-        self.gridLayout.addWidget(self.groupBox_table, 1, 1, 1, 3)
-        self.groupBox_showdata = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupBox_showdata.setTitle("")
-        self.groupBox_showdata.setFlat(True)
-        self.groupBox_showdata.setObjectName("groupBox_showdata")
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.groupBox_showdata)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.view_Reflections = QtWidgets.QGraphicsView(self.groupBox_showdata)
-        self.view_Reflections.setObjectName("view_Reflections")
-        self.verticalLayout.addWidget(self.view_Reflections)
-        self.pushButton_show_Reflections_Data = QtWidgets.QPushButton(self.groupBox_showdata)
-        self.pushButton_show_Reflections_Data.setObjectName("pushButton_show_Reflections_Data")
-        self.verticalLayout.addWidget(self.pushButton_show_Reflections_Data, 0, QtCore.Qt.AlignmentFlag.AlignRight)
-        self.gridLayout.addWidget(self.groupBox_showdata, 0, 0, 1, 4)
-        self.view_colorSpace = QtWidgets.QGraphicsView(self.centralwidget)
-        self.view_colorSpace.setObjectName("view_colorSpace")
-        self.gridLayout.addWidget(self.view_colorSpace, 1, 0, 1, 1, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.tableButtonLayout.addWidget(self.pushButton_copydata)
+        
+        self.tableLayout.addLayout(self.tableButtonLayout)
+        
+        # 添加表格组到底部布局，调整比例
+        self.bottomLayout.addWidget(self.tableGroup, 2)
+        
+        # 添加更多的下边距，让整体布局更加平衡
+        self.mainLayout.setContentsMargins(8, 8, 8, 12)
+        
+        # 添加底部布局到主布局
+        self.mainLayout.addLayout(self.bottomLayout)
+        
+        # 设置中央窗口部件
         MainWindow.setCentralWidget(self.centralwidget)
         
-        # Create menu bar
+        # 创建菜单栏
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 795, 24))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 24))
         self.menubar.setObjectName("menubar")
         
-        # Create menus
+        # 创建菜单
         self.menu_file = QtWidgets.QMenu(self.menubar)
         self.menu_file.setObjectName("menu_file")
         self.menu_file.setTitle("File")
@@ -91,11 +177,12 @@ class Ui_MainWindow(object):
         
         MainWindow.setMenuBar(self.menubar)
         
+        # 创建状态栏
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
         
-        # Create actions
+        # 创建操作
         self.actionImport = QtGui.QAction(MainWindow)
         self.actionImport.setObjectName("actionImport")
         self.actionImport.setText("Import...")
@@ -136,7 +223,7 @@ class Ui_MainWindow(object):
         self.actionManual.setObjectName("actionManual")
         self.actionManual.setText("Manual...")
         
-        # Add actions to menus
+        # 将操作添加到菜单
         self.menu_file.addAction(self.actionImport)
         self.menu_file.addAction(self.actionExport)
         self.menu_file.addAction(self.actionPlot)
@@ -149,7 +236,7 @@ class Ui_MainWindow(object):
         self.menu_help.addAction(self.actionAbout)
         self.menu_help.addAction(self.actionManual)
         
-        # Add menus to menubar
+        # 将菜单添加到菜单栏
         self.menubar.addAction(self.menu_file.menuAction())
         self.menubar.addAction(self.menu_edit.menuAction())
         self.menubar.addAction(self.menu_help.menuAction())
@@ -160,18 +247,9 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Aleksameter App"))
-        item = self.table_results.horizontalHeaderItem(0)
-        item.setText(_translate("MainWindow", "File Name"))
-        item = self.table_results.horizontalHeaderItem(1)
-        item.setText(_translate("MainWindow", "x"))
-        item = self.table_results.horizontalHeaderItem(2)
-        item.setText(_translate("MainWindow", "y"))
-        item = self.table_results.horizontalHeaderItem(3)
-        item.setText(_translate("MainWindow", "sRGB lin"))
-        item = self.table_results.horizontalHeaderItem(4)
-        item.setText(_translate("MainWindow", "sRGB gamma"))
         self.pushButton_copydata.setText(_translate("MainWindow", "Copy to Clipboard"))
         self.pushButton_show_Reflections_Data.setText(_translate("MainWindow", "Show Reflections Data"))
+        self.pushButton_show_CIE_Data.setText(_translate("MainWindow", "Show CIE Diagram"))
         self.menu_file.setTitle(_translate("MainWindow", "File"))
         self.menu_edit.setTitle(_translate("MainWindow", "Edit"))
         self.menu_help.setTitle(_translate("MainWindow", "Help"))
