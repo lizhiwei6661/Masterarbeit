@@ -64,23 +64,10 @@ class Ui_Dialog_plot(object):
 
         self.formLayout.setWidget(0, QFormLayout.FieldRole, self.comboBox_Plot_Format)
 
-        self.label_Plot_DPI = QLabel(self.groupBox_Plot_File)
-        self.label_Plot_DPI.setObjectName(u"label_Plot_DPI")
-
-        self.formLayout.setWidget(1, QFormLayout.LabelRole, self.label_Plot_DPI)
-
-        self.comboBox_Plot_Resolution = QComboBox(self.groupBox_Plot_File)
-        self.comboBox_Plot_Resolution.addItem("")
-        self.comboBox_Plot_Resolution.addItem("")
-        self.comboBox_Plot_Resolution.addItem("")
-        self.comboBox_Plot_Resolution.setObjectName(u"comboBox_Plot_Resolution")
-
-        self.formLayout.setWidget(1, QFormLayout.FieldRole, self.comboBox_Plot_Resolution)
-
         self.label_Plot_File = QLabel(self.groupBox_Plot_File)
         self.label_Plot_File.setObjectName(u"label_Plot_File")
 
-        self.formLayout.setWidget(2, QFormLayout.LabelRole, self.label_Plot_File)
+        self.formLayout.setWidget(1, QFormLayout.LabelRole, self.label_Plot_File)
 
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
@@ -95,7 +82,7 @@ class Ui_Dialog_plot(object):
         self.horizontalLayout.addWidget(self.pushButton_Plot_Browse)
 
 
-        self.formLayout.setLayout(2, QFormLayout.FieldRole, self.horizontalLayout)
+        self.formLayout.setLayout(1, QFormLayout.FieldRole, self.horizontalLayout)
 
 
         self.verticalLayout.addWidget(self.groupBox_Plot_File)
@@ -126,11 +113,6 @@ class Ui_Dialog_plot(object):
         self.comboBox_Plot_Format.setItemText(1, QCoreApplication.translate("Dialog_plot", u"JPEG (.jpg)", None))
         self.comboBox_Plot_Format.setItemText(2, QCoreApplication.translate("Dialog_plot", u"TIFF (.tif)", None))
         self.comboBox_Plot_Format.setItemText(3, QCoreApplication.translate("Dialog_plot", u"PDF (.pdf)", None))
-
-        self.label_Plot_DPI.setText(QCoreApplication.translate("Dialog_plot", u"Resolution:", None))
-        self.comboBox_Plot_Resolution.setItemText(0, QCoreApplication.translate("Dialog_plot", u"150 dpi (draft)", None))
-        self.comboBox_Plot_Resolution.setItemText(1, QCoreApplication.translate("Dialog_plot", u"300 dpi (good)", None))
-        self.comboBox_Plot_Resolution.setItemText(2, QCoreApplication.translate("Dialog_plot", u"600 dpi (best)", None))
 
         self.label_Plot_File.setText(QCoreApplication.translate("Dialog_plot", u"File:", None))
         self.pushButton_Plot_Browse.setText(QCoreApplication.translate("Dialog_plot", u"Browse...", None))

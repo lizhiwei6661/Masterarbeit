@@ -12,7 +12,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(800, 600)  # 将窗口尺寸从900x700缩小到800x600
+        MainWindow.resize(833, 660)  # 将窗口尺寸修改为833*660
         MainWindow.setUnifiedTitleAndToolBarOnMac(False)
         
         # 创建中央窗口部件
@@ -39,8 +39,11 @@ class Ui_MainWindow(object):
         # 添加反射率视图
         self.view_Reflections = QtWidgets.QGraphicsView(self.reflectanceGroup)
         self.view_Reflections.setObjectName("view_Reflections")
-        self.view_Reflections.setMinimumHeight(200)  # 减小最小高度
-        self.view_Reflections.setMaximumHeight(250)  # 添加最大高度限制
+        self.view_Reflections.setMinimumHeight(150)  # 减小最小高度
+        # 移除最大高度限制，允许随窗口缩放
+        # self.view_Reflections.setMaximumHeight(250)  
+        self.view_Reflections.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, 
+                                          QtWidgets.QSizePolicy.Policy.Expanding)
         self.reflectanceLayout.addWidget(self.view_Reflections)
         
         # 添加"Show Reflections Data"按钮
@@ -80,9 +83,12 @@ class Ui_MainWindow(object):
         # 添加CIE视图 - 调整尺寸
         self.view_colorSpace = QtWidgets.QGraphicsView(self.cieGroup)
         self.view_colorSpace.setObjectName("view_colorSpace")
-        self.view_colorSpace.setMinimumSize(QtCore.QSize(280, 280))  # 减小最小尺寸
-        self.view_colorSpace.setMaximumSize(QtCore.QSize(300, 300))  # 减小最大尺寸限制
-        self.view_colorSpace.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)  # 改为固定尺寸
+        self.view_colorSpace.setMinimumSize(QtCore.QSize(200, 200))  # 减小最小尺寸
+        # 移除最大尺寸限制，允许随窗口缩放
+        # self.view_colorSpace.setMaximumSize(QtCore.QSize(300, 300))
+        # 改为允许扩展的尺寸策略
+        self.view_colorSpace.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, 
+                                         QtWidgets.QSizePolicy.Policy.Expanding)
         self.cieLayout.addWidget(self.view_colorSpace)
         
         # 添加"Show CIE Diagram"按钮 - 右对齐

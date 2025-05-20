@@ -1,7 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
 
-datas = [('xyzBar.csv', '.'), ('stdIllum.csv', '.')]
+datas = [
+    ('xyzBar.csv', '.'), 
+    ('stdIllum.csv', '.'),
+    ('font_settings.json', '.'),
+    ('app_settings.json', '.')
+]
 datas += collect_data_files('colour')
 
 

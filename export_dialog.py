@@ -32,7 +32,7 @@ class ExportDialog(QDialog):
             self.settings['export_dialog'] = {}
         
         # Set default filename and path
-        default_dir = self.settings['export']['default_directory']
+        default_dir = self.settings['export'].get('last_directory', self.settings['export']['default_directory'])
         default_filename = "export_data.xlsx" # Default to Excel
         self.ui.lineEdit_Export_File.setText(os.path.join(default_dir, default_filename))
         
@@ -103,7 +103,7 @@ class ExportDialog(QDialog):
     def browse_file(self):
         """Open file selection dialog."""
         current_path = self.ui.lineEdit_Export_File.text()
-        current_dir = os.path.dirname(current_path) if current_path else self.settings['export']['default_directory']
+        current_dir = os.path.dirname(current_path) if current_path else self.settings['export'].get('last_directory', self.settings['export']['default_directory'])
         
         # Get the currently selected file format
         format_idx = self.ui.comboBox_Export_Format.currentIndex()
@@ -139,6 +139,9 @@ class ExportDialog(QDialog):
             if not file_path.lower().endswith(ext):
                  file_path += ext
             self.ui.lineEdit_Export_File.setText(file_path)
+            
+            # 保存当前选择的目录
+            self.settings['export']['last_directory'] = os.path.dirname(file_path)
     
     def on_accepted(self):
         """Handle the OK button click."""
@@ -181,6 +184,8 @@ class ExportDialog(QDialog):
         if success:
             # 保存导出目录到设置
             self.settings['export']['default_directory'] = os.path.dirname(file_path)
+            # 同时保存为最后使用的目录
+            self.settings['export']['last_directory'] = os.path.dirname(file_path)
             
             # 保存当前选择到设置中
             self.settings['export_dialog']['format_index'] = format_idx

@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Aleksameter App")
         
         # 设置初始窗口大小
-        self.resize(800, 600)  # 将窗口尺寸从900x700缩小到800x600
+        self.resize(833, 660)  # 设置为833*660的大小
         
         # 初始化默认设置
         self.settings = self.get_default_settings()
@@ -148,8 +148,28 @@ class MainWindow(QMainWindow):
         # 设置画布的尺寸策略，使其扩展填充可用空间
         self.reflectance_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
+        # 连接画布大小变化事件，确保图表随容器自适应
+        self.reflectance_canvas.mpl_connect('resize_event', self._on_reflectance_resize)
+        
         # 初始绘图
         self.update_reflectance_plot()
+    
+    def _on_reflectance_resize(self, event):
+        """处理反射率图表大小变化事件"""
+        # 获取当前标题显示状态
+        show_title = self.settings['plot'].get('reflectance_show_title', True)
+        
+        # 根据标题显示状态调整顶部边距
+        if show_title:
+            self.reflectance_figure.subplots_adjust(bottom=0.2, top=0.85)
+        else:
+            self.reflectance_figure.subplots_adjust(bottom=0.2, top=0.92)
+            
+        # 调整图表布局，确保标签可见
+        self.reflectance_figure.tight_layout(pad=0.4)
+        
+        # 重新绘制
+        self.reflectance_canvas.draw_idle()
     
     def setup_cie_plot(self):
         """设置CIE图表"""
@@ -166,8 +186,8 @@ class MainWindow(QMainWindow):
         # self.cie_layout.addWidget(self.cie_toolbar)  # 不再添加导航工具栏
         self.cie_layout.addWidget(self.cie_canvas)
         
-        # 设置画布随widget大小自适应，改为固定尺寸
-        self.cie_canvas.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # 修改为自适应尺寸策略，允许图表随容器缩放
+        self.cie_canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # 初始绘图
         self.update_cie_plot()
@@ -297,35 +317,61 @@ class MainWindow(QMainWindow):
         # 修改按钮文本
         self.ui.pushButton_show_CIE_Data.setText("Show CIE Diagram")
     
+    def get_settings_file_path(self):
+        """获取设置文件的绝对路径（使用用户数据目录）"""
+        # 获取用户数据目录
+        if sys.platform == 'darwin':  # macOS
+            user_data_dir = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 'Aleksameter')
+        elif sys.platform == 'win32':  # Windows
+            user_data_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'Aleksameter')
+        else:  # Linux和其他平台
+            user_data_dir = os.path.join(os.path.expanduser('~'), '.aleksameter')
+        
+        # 确保目录存在
+        if not os.path.exists(user_data_dir):
+            os.makedirs(user_data_dir)
+        
+        # 设置文件完整路径
+        settings_file = os.path.join(user_data_dir, "app_settings.json")
+        print(f"设置文件路径: {settings_file}")
+        return settings_file
+    
     def load_settings(self):
         """加载设置"""
         try:
-            settings_file = "app_settings.json"
+            settings_file = self.get_settings_file_path()
             
             # 检查文件是否存在且不为空
             if os.path.exists(settings_file) and os.path.getsize(settings_file) > 0:
                 with open(settings_file, 'r') as f:
                     loaded_settings = json.loads(f.read())
-                # 更新设置
+                
+                # 获取默认设置作为基础
+                default_settings = self.get_default_settings()
+                
+                # 创建一个新的设置字典，从默认设置开始
+                complete_settings = default_settings.copy()
+                
+                # 用加载的设置覆盖默认设置
                 for category in loaded_settings:
-                    if category in self.settings:
-                        self.settings[category].update(loaded_settings[category])
+                    if category in complete_settings:
+                        complete_settings[category].update(loaded_settings[category])
+                    else:
+                        complete_settings[category] = loaded_settings[category]
+                
+                # 应用完整的设置
+                self.settings = complete_settings
                 print(f"设置已从 {settings_file} 加载")
             else:
                 print(f"设置文件 {settings_file} 不存在或为空，使用默认设置")
-                # 获取默认设置
-                default_settings = self.get_default_settings()
-                # 用默认值初始化设置中缺失的部分
-                for category in default_settings:
-                    if category not in self.settings:
-                        self.settings[category] = {}
-                    for key, value in default_settings[category].items():
-                        if key not in self.settings[category]:
-                            self.settings[category][key] = value
+                # 使用默认设置
+                self.settings = self.get_default_settings()
                 # 创建默认设置文件
                 self.save_settings()
         except Exception as e:
             print(f"Error loading settings: {str(e)}")
+            import traceback
+            traceback.print_exc()
             # 使用默认设置并创建设置文件
             self.settings = self.get_default_settings()
             self.save_settings()
@@ -333,12 +379,20 @@ class MainWindow(QMainWindow):
     def save_settings(self):
         """保存设置"""
         try:
-            settings_file = "app_settings.json"
+            settings_file = self.get_settings_file_path()
+            
+            # 确保目录存在
+            settings_dir = os.path.dirname(settings_file)
+            if not os.path.exists(settings_dir):
+                os.makedirs(settings_dir)
+                
             with open(settings_file, 'w') as f:
                 f.write(json.dumps(self.settings, indent=4))
             print(f"设置已保存到 {settings_file}")
         except Exception as e:
             print(f"Error saving settings: {str(e)}")
+            import traceback
+            traceback.print_exc()
             
     def get_default_settings(self):
         """获取默认设置"""
@@ -360,7 +414,25 @@ class MainWindow(QMainWindow):
                 'cie_show_title': True,
                 'reflectance_show_legend': True,
                 'cie_show_legend': True,
-                'reflectance_color': '#1f77b4'  # 默认蓝色
+                'reflectance_color': '#1f77b4',  # 默认蓝色
+                
+                # 添加字体大小设置
+                'reflectance_font_size': 'Medium',  # 默认中等字体大小
+                'cie_font_size': 'Medium',  # 默认中等字体大小
+                
+                # 导出图表的字体设置
+                'export_font_family': 'Arial',
+                'export_title_size': 12,
+                'export_axis_label_size': 10,
+                'export_tick_label_size': 8,
+                'export_legend_size': 9,
+                
+                # 不同DPI下的字体缩放比例
+                'export_dpi_scaling': {
+                    '150': 1.0,  # 150DPI时不缩放
+                    '300': 0.9,  # 300DPI时缩小10%
+                    '600': 0.8   # 600DPI时缩小20%
+                }
             },
             'export': {
                 'separator': 'Point',
@@ -368,10 +440,15 @@ class MainWindow(QMainWindow):
                 'default_directory': os.path.expanduser('~'),
                 'default_format': 'xlsx',
                 'include_header': True,
-                'decimal_places': 6
+                'decimal_places': 6,
+                'last_directory': os.path.expanduser('~'),
+                'last_plot_directory': os.path.expanduser('~')
             },
             'import': {
-                'default_directory': os.path.expanduser('~')
+                'default_directory': os.path.expanduser('~'),
+                'black_reference_directory': os.path.expanduser('~'),
+                'white_reference_directory': os.path.expanduser('~'),
+                'measurement_directory': os.path.expanduser('~')
             },
             'plot_export': {
                 'dpi_index': 1,  # 默认300 DPI (index 1)
@@ -747,10 +824,9 @@ class MainWindow(QMainWindow):
         show_title = self.settings['plot'].get('reflectance_show_title', True)
         title_text = self.settings['plot'].get('reflectance_title', "Reflectance Spectra of Measured Samples")
         
-        # 强制显示标题，无论settings如何设置
-        ax.set_title(title_text, fontsize=10)  # 恢复为原来的大小
-        if not show_title:
-            print("反射率图表标题已被设置为不显示，但当前已强制显示")
+        # 只有当设置为显示标题时才显示
+        if show_title:
+            ax.set_title(title_text, fontsize=10)
         
         # 设置其他基本属性
         ax.set_xlabel("Wavelength (nm)", fontsize=8)  # 恢复为原来的大小
@@ -832,6 +908,9 @@ class MainWindow(QMainWindow):
         # 调整底部边距，确保X轴标签显示
         self.reflectance_figure.subplots_adjust(bottom=0.2)
         
+        # 调整图表布局以适应标题显示/隐藏状态
+        self.reflectance_figure.tight_layout(pad=0.4)
+        
         # 刷新图表
         self.reflectance_canvas.draw()
     
@@ -866,7 +945,7 @@ class MainWindow(QMainWindow):
                     method="CIE 1931",  # 使用CIE 1931方法
                     standalone=False,  # 不独立绘图
                     title=False,  # 不使用默认标题
-                    bounding_box=(0, 0.8, 0, 0.9)  # 与原设置一致
+                    bounding_box=(0, 0.8, 0, 0.9)  # 恢复原始设置
                 )
                 
                 # 获取光谱轨迹线的数据点
@@ -980,39 +1059,6 @@ class MainWindow(QMainWindow):
                     # 使用黑色细线绘制色域边界，zorder设置为30以确保在最上层
                     ax.plot(x_points, y_points, '-', color='black', linewidth=1.0, 
                            zorder=30, label=gamut)
-                    
-                    # 根据设置决定是否显示图例
-                    show_legend = self.settings['plot'].get('cie_show_legend', True)
-                    if show_legend:
-                        # 获取图例对象并设置较小的字体大小
-                        legend = ax.get_legend()
-                        if legend is not None:
-                            # 设置图例字体更小
-                            for text in legend.get_texts():
-                                text.set_fontsize(6)  # 使用更小的字体
-                            # 减小图例框大小
-                            legend.set_frame_on(True)
-                            legend.set_title('')  # 移除图例标题
-                            # 移动图例到右上角并减小外边距
-                            legend._loc = 1  # 1 表示右上角
-                            legend.set_bbox_to_anchor((1.0, 1.0))
-                            # 调整图例大小
-                            legend._legend_box.align = "right"
-                        
-                        # 在图例不存在时创建图例
-                        if legend is None:
-                            ax.legend(fontsize=6, loc='upper right', frameon=True,
-                                    bbox_to_anchor=(1.0, 1.0))
-                    else:
-                        # 如果设置为不显示图例，则移除任何现有的图例
-                        legend = ax.get_legend()
-                        if legend is not None:
-                            legend.remove()
-                else:
-                    # 如果选择了'None'，则移除任何现有的图例
-                    legend = ax.get_legend()
-                    if legend is not None:
-                        legend.remove()
                 
                 # 绘制当前使用的光源点
                 illuminant = self.settings['general']['illuminant']
@@ -1115,7 +1161,7 @@ class MainWindow(QMainWindow):
         ax.set_xlabel("x", fontsize=label_size)
         ax.set_ylabel("y", fontsize=label_size)
         
-        # 设置轴范围
+        # 设置轴范围 - 恢复原始范围
         ax.set_xlim(0, 0.8)
         ax.set_ylim(0, 0.9)
         
@@ -1134,7 +1180,7 @@ class MainWindow(QMainWindow):
         # 如果没有数据，跳过后续步骤
         if not has_data:
             # 调整布局，确保标签可见
-            self.cie_figure.subplots_adjust(bottom=0.15, left=0.15, right=0.95, top=0.9)
+            self.cie_figure.tight_layout(pad=0.4)
             self.cie_canvas.draw()
             return
         
@@ -1143,13 +1189,32 @@ class MainWindow(QMainWindow):
         for result in self.data['results']:
             x, y = result['x'], result['y']
             hex_color = result['hex_color']
-            print(f"  Plotting point: {result['file_name']} at ({x:.4f}, {y:.4f})")
-            # 设置数据点与光源点大小一致，使用实心点
+            file_name = result['file_name']
+            print(f"  Plotting point: {file_name} at ({x:.4f}, {y:.4f})")
+            # 设置数据点与光源点大小一致，使用实心点，并添加标签供图例显示
             ax.plot(x, y, 'o', color=hex_color, markersize=4, markeredgecolor='black', 
-                   markeredgewidth=0.8, zorder=100)
+                   markeredgewidth=0.8, zorder=100, label=file_name)
         
-        # 调整布局，确保标签可见，并调整比例
-        self.cie_figure.subplots_adjust(bottom=0.15, left=0.15, right=0.95, top=0.9)
+        # 根据设置决定是否显示图例 - 包括测量点和色域
+        show_legend = self.settings['plot'].get('cie_show_legend', True)
+        if show_legend:
+            # 获取图例对象并设置较小的字体大小
+            legend = ax.legend(fontsize=6, loc='upper right', frameon=True,
+                            bbox_to_anchor=(1.0, 1.0))
+            if legend is not None:
+                # 设置图例框属性
+                legend.set_frame_on(True)
+                legend.set_title('')  # 移除图例标题
+                # 调整图例大小
+                legend._legend_box.align = "right"
+        else:
+            # 如果设置为不显示图例，则移除任何现有的图例
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+        
+        # 调整布局 - 改用tight_layout代替固定的调整参数，以便更好地适应容器
+        self.cie_figure.tight_layout(pad=0.4)
         
         # 刷新画布
         self.cie_canvas.draw()
@@ -1277,8 +1342,16 @@ class MainWindow(QMainWindow):
         """打开设置对话框"""
         dialog = SettingsDialog(self, self.settings)
         if dialog.exec():
-            # 如果用户点击了"确定"，则保存设置
-            self.settings = dialog.get_settings()
+            # 如果用户点击了"确定"，则更新设置（但保留那些不在对话框中的设置）
+            new_settings = dialog.get_settings()
+            
+            # 更新现有设置而不是完全替换
+            for category in new_settings:
+                if category in self.settings:
+                    self.settings[category].update(new_settings[category])
+                else:
+                    self.settings[category] = new_settings[category]
+            
             # 保存设置
             self.save_settings()
             # 应用设置
@@ -1311,11 +1384,32 @@ class MainWindow(QMainWindow):
         # 无论是否有数据，都立即更新反射率图表和CIE图表，应用新的标题和显示设置
         if hasattr(self, 'reflectance_canvas'):
             print("立即更新反射率图表应用新设置...")
+            
+            # 先保存当前大小
+            if hasattr(self, 'reflectance_figure'):
+                orig_size = self.reflectance_figure.get_size_inches()
+                
+            # 更新图表
             self.update_reflectance_plot()
+            
+            # 确保布局自适应（对于标题显示/隐藏特别重要）
+            if hasattr(self, 'reflectance_figure'):
+                # 应用tight_layout以确保所有元素可见且布局良好
+                self.reflectance_figure.tight_layout(pad=0.4)
+                # 重置到原始大小以防止尺寸漂移
+                if 'orig_size' in locals():
+                    self.reflectance_figure.set_size_inches(orig_size)
+                # 强制完全重绘
+                self.reflectance_canvas.draw()
             
         # 更新CIE图表显示，确保光源点显示正确
         if hasattr(self, 'cie_canvas'):
             self.update_cie_plot()
+            
+        # 如果扩展CIE图表窗口打开，也更新它
+        if hasattr(self, 'cie_dialog') and self.cie_dialog is not None and self.cie_dialog.isVisible():
+            print("更新扩展CIE图表应用新设置...")
+            self.update_expanded_cie_plot()
         
         # 检查是否已经有计算结果，如果有且不需要重新计算，则直接更新表格
         if self.data['results'] and self.settings['general'].get('rgb_values') is not None:
@@ -1441,6 +1535,10 @@ class MainWindow(QMainWindow):
         
         # 目前不需要重新计算，但可能需要更新显示
         self.update_cie_plot()
+        
+        # 如果扩展CIE图表窗口打开，也更新它
+        if self.cie_dialog is not None and self.cie_dialog.isVisible():
+            self.update_expanded_cie_plot()
     
     def copy_all_data(self):
         """复制所有数据到剪贴板"""
@@ -1795,7 +1893,7 @@ class MainWindow(QMainWindow):
                     method="CIE 1931",  # 使用CIE 1931方法
                     standalone=False,  # 不独立绘图
                     title=False,  # 不使用默认标题
-                    bounding_box=(0, 0.8, 0, 0.9)  # 与原设置一致
+                    bounding_box=(0, 0.8, 0, 0.9)  # 恢复原始设置
                 )
                 
                 # 获取光谱轨迹线的数据点
@@ -1898,9 +1996,6 @@ class MainWindow(QMainWindow):
                     
                     ax.plot(x_points, y_points, '-', color='black', linewidth=1.2, 
                            zorder=30, label=gamut)
-                    
-                    # 添加图例
-                    ax.legend(fontsize=legend_size, loc='upper right', frameon=True)
                 
                 # 绘制光源点
                 illuminant = self.settings['general']['illuminant']
@@ -1979,33 +2074,41 @@ class MainWindow(QMainWindow):
                     for result in self.data['results']:
                         x, y = result['x'], result['y']
                         hex_color = result['hex_color']
-                        # 为大视图增大点的尺寸
-                        ax.plot(x, y, 'o', color=hex_color, markersize=8, markeredgecolor='black', 
-                              markeredgewidth=1.2, zorder=100)
-                        
-                        # 添加数据点标签
                         file_name = result['file_name']
-                        if '.' in file_name:
-                            file_name = file_name.split('.')[0]  # 移除扩展名
-                        
-                        ax.annotate(
-                            file_name,
-                            (x + 0.02, y - 0.02),
-                            fontsize=annotation_size,
-                            color='black',
-                            ha='left',
-                            va='top',
-                            zorder=100,
-                            bbox=dict(facecolor='white', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.1')
-                        )
+                        # 为大视图增大点的尺寸，使用标签用于图例
+                        ax.plot(x, y, 'o', color=hex_color, markersize=8, markeredgecolor='black', 
+                              markeredgewidth=1.2, zorder=100, label=file_name)
+                
+                # 根据设置决定是否显示图例 - 包括测量点和色域
+                show_legend = self.settings['plot'].get('cie_show_legend', True)
+                if show_legend:
+                    # 获取图例对象并设置较小的字体大小
+                    legend = ax.legend(fontsize=legend_size, loc='upper right', frameon=True,
+                                    bbox_to_anchor=(1.0, 1.0))
+                    if legend is not None:
+                        # 设置图例框属性
+                        legend.set_frame_on(True)
+                        legend.set_title('')  # 移除图例标题
+                        # 调整图例大小
+                        legend._legend_box.align = "right"
+                else:
+                    # 如果设置为不显示图例，则移除任何现有的图例
+                    legend = ax.get_legend()
+                    if legend is not None:
+                        legend.remove()
                 
         except Exception as e:
             print(f"Error drawing expanded CIE chart: {e}")
             # 回退到简化版绘图
             self.draw_simplified_cie_boundary(ax)
         
-        # 设置标题和轴标签
-        ax.set_title("CIE 1931 Chromaticity Diagram", fontsize=title_size)
+        # 设置标题和轴标签 - 从settings获取标题设置
+        show_title = self.settings['plot'].get('cie_show_title', True)
+        title_text = self.settings['plot'].get('cie_title', "CIE 1931 Chromaticity Diagram")
+        
+        if show_title:
+            ax.set_title(title_text, fontsize=title_size)
+        
         ax.set_xlabel("x", fontsize=label_size)
         ax.set_ylabel("y", fontsize=label_size)
         
@@ -2041,12 +2144,115 @@ class MainWindow(QMainWindow):
         # 填充范围
         ax.fill(boundary_x, boundary_y, alpha=0.1, color='gray')
         
-        # 绘制数据点
+        # 绘制光源
+        illuminant = self.settings['general']['illuminant']
+        # 常见光源坐标
+        illuminant_coords = {
+            'D65': (0.3128, 0.3290),
+            'D50': (0.3457, 0.3585),
+            'A': (0.4476, 0.4074),
+            'E': (1/3, 1/3)
+        }
+        
+        if illuminant in illuminant_coords:
+            x_illum, y_illum = illuminant_coords[illuminant]
+            ax.plot(x_illum, y_illum, 'o', color='black', markersize=6, 
+                   markerfacecolor='none', markeredgewidth=1.2, zorder=50)
+        
+        # 绘制色域（如果有）
+        gamut = self.settings['general']['gamut']
+        if gamut != 'None':
+            # 根据选择的色域定义相应顶点
+            if gamut == 'sRGB':
+                r = (0.64, 0.33)
+                g = (0.30, 0.60)
+                b = (0.15, 0.06)
+            elif gamut == 'Adobe RGB':
+                r = (0.64, 0.33)
+                g = (0.21, 0.71)
+                b = (0.15, 0.06)
+            elif gamut == 'HTC VIVE Pro Eye':
+                r = (0.6585, 0.3407)
+                g = (0.2326, 0.7119)
+                b = (0.1431, 0.0428)
+            elif gamut == 'Meta Oculus Quest 1':
+                r = (0.6596, 0.3396)
+                g = (0.2395, 0.7069)
+                b = (0.1452, 0.0531)
+            elif gamut == 'Meta Oculus Quest 2':
+                r = (0.6364, 0.3305)
+                g = (0.3032, 0.5938)
+                b = (0.1536, 0.0632)
+            elif gamut == 'Meta Oculus Rift':
+                r = (0.6690, 0.3300)
+                g = (0.2545, 0.7015)
+                b = (0.1396, 0.0519)
+            else:
+                # 默认使用sRGB
+                r = (0.64, 0.33)
+                g = (0.30, 0.60)
+                b = (0.15, 0.06)
+                
+            # 创建闭合多边形的点列表
+            x_points = [r[0], g[0], b[0], r[0]]
+            y_points = [r[1], g[1], b[1], r[1]]
+            
+            # 绘制色域边界，并添加标签
+            ax.plot(x_points, y_points, 'k-', linewidth=1.5, label=gamut)
+        
+        # 绘制数据点 - 使用标签而不是直接标注
         for result in self.data['results']:
             x, y = result['x'], result['y']
             hex_color = result['hex_color']
+            file_name = result['file_name']
             ax.plot(x, y, 'o', color=hex_color, markersize=8, markeredgecolor='black', 
-                   markeredgewidth=1.2, zorder=100)
+                   markeredgewidth=1.2, zorder=100, label=file_name)
+        
+        # 根据设置决定是否显示图例
+        show_legend = self.settings['plot'].get('cie_show_legend', True)
+        if show_legend:
+            # 添加图例
+            legend = ax.legend(fontsize=8, loc='upper right', frameon=True)
+            if legend is not None:
+                legend.set_frame_on(True)
+                legend.set_title('')
+        else:
+            # 不显示图例
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+                
+        # 设置标题（从settings中获取设置）
+        show_title = self.settings['plot'].get('cie_show_title', True)
+        title_text = self.settings['plot'].get('cie_title', "CIE 1931 Chromaticity Diagram")
+        
+        if show_title:
+            ax.set_title(title_text, fontsize=12)
+    
+    def resizeEvent(self, event):
+        """处理窗口尺寸变化事件，调整UI元素"""
+        super().resizeEvent(event)
+        self.adjust_table_columns()
+        
+        # 刷新图表
+        if hasattr(self, 'reflectance_canvas'):
+            self.reflectance_canvas.draw()
+        if hasattr(self, 'cie_canvas'):
+            self.cie_canvas.draw()
+        
+        # 触发窗口大小变化事件
+        if hasattr(self, 'reflectance_canvas') or hasattr(self, 'cie_canvas'):
+            self.on_window_resize(event)
+    
+    def closeEvent(self, event):
+        """
+        处理程序关闭事件，确保保存所有用户设置
+        """
+        # 保存当前的所有设置到配置文件
+        self.save_settings()
+        
+        # 调用父类的closeEvent处理默认关闭行为
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":

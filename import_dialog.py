@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from PySide6.QtWidgets import (
     QDialog, QFileDialog, QMessageBox, QVBoxLayout, 
-    QCheckBox, QHBoxLayout, QPushButton, QWidget, QListView
+    QCheckBox, QHBoxLayout, QPushButton, QWidget, QListView, QSizePolicy
 )
 from PySide6.QtCore import Qt, QStringListModel
 from PySide6.QtGui import QStandardItemModel, QStandardItem
@@ -33,8 +33,14 @@ class ImportDialog(QDialog):
         self.measurement_files = []
         self.selected_measurements = []
         
-        # 添加会话级变量记住最后使用的目录
+        # 添加会话级变量记住不同类型文件的最后使用目录
         self.last_directory = self.get_import_directory()
+        self.black_reference_directory = self.get_directory('black_reference_directory') or self.last_directory
+        self.white_reference_directory = self.get_directory('white_reference_directory') or self.last_directory
+        self.measurement_directory = self.get_directory('measurement_directory') or self.last_directory
+        
+        # 添加会话内使用的最后文件夹路径变量
+        self.current_session_directory = self.last_directory
         
         # Initialize data model
         self.file_model = QStandardItemModel()
@@ -56,6 +62,12 @@ class ImportDialog(QDialog):
         # No longer add toolbar
         # layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
+        
+        # 设置画布自适应尺寸策略
+        self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        
+        # 确保view_spec可以随窗口大小变化而调整
+        self.ui.view_spec.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Configure chart initial layout - further increase bottom margins
         self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
@@ -207,9 +219,12 @@ class ImportDialog(QDialog):
         """
         Select the black reference file.
         """
+        # 优先使用当前会话目录，其次用黑参考记录的目录，最后用通用导入目录
+        start_dir = self.current_session_directory or self.black_reference_directory or self.get_import_directory()
+        
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Black Reference File", 
-            self.get_import_directory(),
+            start_dir,
             "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
         )
         if file_path:
@@ -226,16 +241,28 @@ class ImportDialog(QDialog):
                 QMessageBox.warning(self, "Error", f"Failed to load black reference file: {os.path.basename(file_path)}")
                 self.black_reference_path = None # Reset path if loading failed
             
-            # Remember directory for next time
-            self.save_import_directory(os.path.dirname(file_path))
+            # 记住黑参考文件目录
+            directory = os.path.dirname(file_path)
+            self.black_reference_directory = directory
+            self.save_directory('black_reference_directory', directory)
+            
+            # 更新当前会话目录
+            self.current_session_directory = directory
+            
+            # 同时更新通用导入目录
+            self.last_directory = directory
+            self.save_import_directory(directory)
 
     def select_white_reference(self):
         """
         Select the white reference file.
         """
+        # 优先使用当前会话目录，其次用白参考记录的目录，最后用通用导入目录
+        start_dir = self.current_session_directory or self.white_reference_directory or self.get_import_directory()
+        
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select White Reference File", 
-            self.get_import_directory(),
+            start_dir,
             "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
         )
         if file_path:
@@ -252,8 +279,17 @@ class ImportDialog(QDialog):
                 QMessageBox.warning(self, "Error", f"Failed to load white reference file: {os.path.basename(file_path)}")
                 self.white_reference_path = None # Reset path if loading failed
             
-            # Remember directory for next time
-            self.save_import_directory(os.path.dirname(file_path))
+            # 记住白参考文件目录
+            directory = os.path.dirname(file_path)
+            self.white_reference_directory = directory
+            self.save_directory('white_reference_directory', directory)
+            
+            # 更新当前会话目录
+            self.current_session_directory = directory
+            
+            # 同时更新通用导入目录
+            self.last_directory = directory
+            self.save_import_directory(directory)
 
     def clear_reference(self):
         """
@@ -271,9 +307,12 @@ class ImportDialog(QDialog):
         """
         Select measurement data files.
         """
+        # 优先使用当前会话目录，其次用测量文件记录的目录，最后用通用导入目录
+        start_dir = self.current_session_directory or self.measurement_directory or self.get_import_directory()
+        
         file_paths, _ = QFileDialog.getOpenFileNames(
             self, "Select Measurement Files", 
-            self.get_import_directory(),
+            start_dir,
             "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
         )
         if file_paths:
@@ -295,9 +334,18 @@ class ImportDialog(QDialog):
             if failed_files:
                 QMessageBox.warning(self, "Warning", f"The following files could not be loaded or parsed:\n\n" + "\n".join(failed_files))
             
-            # Remember directory for next time
+            # 记住测量文件目录
             if self.measurement_files:
-                self.save_import_directory(os.path.dirname(self.measurement_files[0]))
+                directory = os.path.dirname(self.measurement_files[0])
+                self.measurement_directory = directory
+                self.save_directory('measurement_directory', directory)
+                
+                # 更新当前会话目录
+                self.current_session_directory = directory
+                
+                # 同时更新通用导入目录
+                self.last_directory = directory
+                self.save_import_directory(directory)
 
     def populate_file_list(self):
         """
@@ -619,6 +667,25 @@ class ImportDialog(QDialog):
         print("Import dialog accepted.")
         super().accept()
 
+    def get_settings_file_path(self):
+        """获取设置文件的绝对路径（使用用户数据目录）"""
+        # 获取用户数据目录
+        if sys.platform == 'darwin':  # macOS
+            user_data_dir = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 'Aleksameter')
+        elif sys.platform == 'win32':  # Windows
+            user_data_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'Aleksameter')
+        else:  # Linux和其他平台
+            user_data_dir = os.path.join(os.path.expanduser('~'), '.aleksameter')
+        
+        # 确保目录存在
+        if not os.path.exists(user_data_dir):
+            os.makedirs(user_data_dir)
+        
+        # 设置文件完整路径
+        settings_file = os.path.join(user_data_dir, "app_settings.json")
+        print(f"导入对话框设置文件路径: {settings_file}")
+        return settings_file
+
     def get_import_directory(self):
         """Get import directory, use cached if available, otherwise return default directory"""
         # 优先使用会话中记录的最后目录
@@ -626,7 +693,7 @@ class ImportDialog(QDialog):
             return self.last_directory
             
         # Try reading last import directory from settings
-        settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
+        settings_file = self.get_settings_file_path()
         try:
             if os.path.exists(settings_file):
                 import json
@@ -634,8 +701,8 @@ class ImportDialog(QDialog):
                     settings = json.load(f)
                     if 'import' in settings and 'default_directory' in settings['import']:
                         return settings['import']['default_directory']
-        except:
-            pass
+        except Exception as e:
+            print(f"读取导入目录设置出错: {e}")
         
         # Default directory
         return os.path.expanduser('~')
@@ -646,7 +713,7 @@ class ImportDialog(QDialog):
         self.last_directory = directory
         
         # 保存到设置文件
-        settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_settings.json')
+        settings_file = self.get_settings_file_path()
         try:
             settings = {}
             if os.path.exists(settings_file):
@@ -659,10 +726,15 @@ class ImportDialog(QDialog):
             
             settings['import']['default_directory'] = directory
             
+            # 确保目录存在
+            settings_dir = os.path.dirname(settings_file)
+            if not os.path.exists(settings_dir):
+                os.makedirs(settings_dir)
+            
             with open(settings_file, 'w') as f:
                 json.dump(settings, f, indent=4)
-        except:
-            pass
+        except Exception as e:
+            print(f"保存导入目录设置出错: {e}")
 
     def get_selected_data(self):
         """
@@ -686,8 +758,56 @@ class ImportDialog(QDialog):
 
     def _on_resize(self, event):
         """Handle chart size change event"""
-        # Update to use same bottom margins
-        self.figure.subplots_adjust(left=0.18, right=0.92, bottom=0.22, top=0.92)
-            
+        # 使用tight_layout替代固定调整，更好地适应尺寸变化
+        self.figure.tight_layout(pad=0.4)
+        
         # Redraw chart
         self.canvas.draw_idle()
+        
+    def resizeEvent(self, event):
+        """处理对话框大小变化事件"""
+        # 调用父类的resizeEvent
+        super().resizeEvent(event)
+        
+        # 确保图表更新
+        if hasattr(self, 'canvas'):
+            self.canvas.draw_idle()
+
+    def get_directory(self, key):
+        """获取特定类型文件的目录，如果不存在则返回None"""
+        settings_file = self.get_settings_file_path()
+        try:
+            if os.path.exists(settings_file):
+                import json
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    if 'import' in settings and key in settings['import']:
+                        return settings['import'][key]
+        except Exception as e:
+            print(f"获取目录设置出错: {e}")
+        return None
+    
+    def save_directory(self, key, directory):
+        """保存特定类型文件的目录到设置文件"""
+        settings_file = self.get_settings_file_path()
+        try:
+            settings = {}
+            if os.path.exists(settings_file):
+                import json
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+            
+            if 'import' not in settings:
+                settings['import'] = {}
+            
+            settings['import'][key] = directory
+            
+            # 确保目录存在
+            settings_dir = os.path.dirname(settings_file)
+            if not os.path.exists(settings_dir):
+                os.makedirs(settings_dir)
+            
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f, indent=4)
+        except Exception as e:
+            print(f"保存目录设置出错: {e}")

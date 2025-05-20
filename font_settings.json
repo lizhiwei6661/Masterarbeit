@@ -1,0 +1,39 @@
+{
+    "font_families": [
+        "Arial",
+        "Times New Roman",
+        "Helvetica",
+        "Courier New",
+        "Verdana",
+        "SimSun",
+        "KaiTi",
+        "Microsoft YaHei",
+        "SimHei"
+    ],
+    "default_font_family": "Arial",
+    "font_sizes": {
+        "Small": {
+            "title_size": 8,
+            "axis_label_size": 6.6,
+            "tick_label_size": 5.3,
+            "legend_size": 6
+        },
+        "Medium": {
+            "title_size": 9.6,
+            "axis_label_size": 8,
+            "tick_label_size": 6.4,
+            "legend_size": 7.2
+        },
+        "Large": {
+            "title_size": 12,
+            "axis_label_size": 10,
+            "tick_label_size": 8,
+            "legend_size": 9
+        }
+    },
+    "dpi_scaling": {
+        "150": 1.0,
+        "300": 1.0,
+        "600": 1.1
+    }
+} 

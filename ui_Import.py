@@ -66,6 +66,7 @@ class Ui_Dialog_import(object):
 
         self.view_spec = QGraphicsView(self.groupBox_import)
         self.view_spec.setObjectName(u"view_spec")
+        self.view_spec.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.gridLayout_3.addWidget(self.view_spec, 4, 1, 7, 1)
 

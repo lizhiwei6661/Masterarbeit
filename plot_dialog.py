@@ -1,4 +1,5 @@
 import os
+import json
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
     QComboBox, QLineEdit, QPushButton, QFileDialog,
@@ -12,6 +13,7 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar
 )
 from ui_plot_dialog import Ui_Dialog_plot
+import matplotlib
 
 
 class PlotDialog(QDialog):
@@ -35,12 +37,19 @@ class PlotDialog(QDialog):
         self.settings = settings
         self.parent = parent
         
+        # 加载字体设置
+        self.font_settings = self.load_font_settings()
+        
         # Initialize UI
         self.ui = Ui_Dialog_plot()
         self.ui.setupUi(self)
         
+        # 确保settings中有plot_export部分
+        if 'plot_export' not in self.settings:
+            self.settings['plot_export'] = {}
+        
         # Set default filename and path
-        default_dir = self.settings['export']['default_directory']
+        default_dir = self.settings['export'].get('last_plot_directory', self.settings['export']['default_directory'])
         default_filename = "plot.png"
         self.ui.lineEdit_Plot_File.setText(os.path.join(default_dir, default_filename))
         
@@ -62,17 +71,59 @@ class PlotDialog(QDialog):
         self.ui.checkBox_Plot_CIE.stateChanged.connect(self.check_selection)
         self.check_selection() # Initial check
     
+    def load_font_settings(self):
+        """加载字体设置文件"""
+        # 默认字体设置
+        default_settings = {
+            "font_families": ["Arial", "Times New Roman", "Helvetica"],
+            "default_font_family": "Arial",
+            "font_sizes": {
+                "Small": {
+                    "title_size": 9.6,
+                    "axis_label_size": 8,
+                    "tick_label_size": 6.4,
+                    "legend_size": 7.2
+                },
+                "Medium": {
+                    "title_size": 12,
+                    "axis_label_size": 10,
+                    "tick_label_size": 8,
+                    "legend_size": 9
+                },
+                "Large": {
+                    "title_size": 14.4,
+                    "axis_label_size": 12,
+                    "tick_label_size": 9.6,
+                    "legend_size": 10.8
+                }
+            },
+            "dpi_scaling": {
+                "150": 1.0,
+                "300": 0.9,
+                "600": 0.3
+            }
+        }
+        
+        # 尝试从文件加载
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            font_settings_path = os.path.join(script_dir, 'font_settings.json')
+            
+            if os.path.exists(font_settings_path):
+                with open(font_settings_path, 'r', encoding='utf-8') as f:
+                    font_settings = json.load(f)
+                print(f"Loaded font settings from {font_settings_path}")
+                return font_settings
+        except Exception as e:
+            print(f"Error loading font settings: {str(e)}")
+        
+        # 如果加载失败，返回默认设置
+        print("Using default font settings")
+        return default_settings
+    
     def load_previous_selections(self):
         """Load previous user selections from settings."""
-        # 确保settings中有plot_export部分
-        if 'plot_export' not in self.settings:
-            self.settings['plot_export'] = {}
-        
         plot_export_settings = self.settings['plot_export']
-        
-        # 设置DPI选择 - 确保默认值为300 DPI (index 1)
-        dpi_index = plot_export_settings.get('dpi_index', 1)  # 默认为300 dpi (index 1)
-        self.ui.comboBox_Plot_Resolution.setCurrentIndex(dpi_index)
         
         # 设置文件格式
         format_index = plot_export_settings.get('format_index', 0)  # 默认为PNG (index 0)
@@ -122,7 +173,7 @@ class PlotDialog(QDialog):
     def browse_file(self):
         """Browse and select the export file path."""
         current_path = self.ui.lineEdit_Plot_File.text()
-        current_dir = os.path.dirname(current_path) if current_path else self.settings['export']['default_directory']
+        current_dir = os.path.dirname(current_path) if current_path else self.settings['export'].get('last_plot_directory', self.settings['export']['default_directory'])
         
         # Get the currently selected file format
         format_idx = self.ui.comboBox_Plot_Format.currentIndex()
@@ -152,6 +203,9 @@ class PlotDialog(QDialog):
             if not file_path.lower().endswith(ext):
                  file_path += ext
             self.ui.lineEdit_Plot_File.setText(file_path)
+            
+            # 保存当前选择的目录
+            self.settings['export']['last_plot_directory'] = os.path.dirname(file_path)
     
     def on_accepted(self):
         """Handle the OK button click."""
@@ -186,14 +240,11 @@ class PlotDialog(QDialog):
         file_dir = os.path.dirname(file_path)
         file_name_base = os.path.splitext(os.path.basename(file_path))[0]
         
-        # Get DPI setting - get corresponding DPI value from dropdown
-        resolution_idx = self.ui.comboBox_Plot_Resolution.currentIndex()
-        if resolution_idx == 0:
-            dpi = 150  # draft
-        elif resolution_idx == 1:
-            dpi = 300  # good
-        else:
-            dpi = 600  # best
+        # 保存最后使用的目录
+        self.settings['export']['last_plot_directory'] = file_dir
+        
+        # 从settings中获取DPI设置值
+        dpi = self.settings['plot'].get('reflectance_dpi', 300)  # 默认为300 dpi
         
         success = True
         exported_files = []
@@ -232,28 +283,77 @@ class PlotDialog(QDialog):
                     orig_fig.set_size_inches(width_inches, height_inches)
                     orig_fig.set_dpi(dpi)
                     
-                    # Scale font sizes based on DPI to maintain readability
-                    scale_factor = min(1.0, 300 / dpi)  # 缩放因子，高DPI时字体变小
+                    # 从设置中读取字体配置
+                    font_family = self.font_settings['default_font_family']
                     
-                    # 调整图表中的字体大小
+                    # 根据字体大小设置获取具体的字号
+                    reflectance_font_size = self.settings['plot'].get('reflectance_font_size', 'Medium')
+                    
+                    # 获取font_sizes配置中的具体值
+                    font_sizes = self.font_settings['font_sizes']
+                    font_size_config = font_sizes.get(reflectance_font_size, {})
+                    
+                    # 从配置中获取字体大小值，如果没有配置则使用默认值
+                    title_size = font_size_config.get('title_size', 12)
+                    axis_label_size = font_size_config.get('axis_label_size', 10)
+                    tick_label_size = font_size_config.get('tick_label_size', 8)
+                    legend_size = font_size_config.get('legend_size', 9)
+                    
+                    # 获取当前DPI对应的缩放比例
+                    dpi_str = str(dpi)
+                    if dpi_str in self.font_settings['dpi_scaling']:
+                        scale_factor = self.font_settings['dpi_scaling'][dpi_str]
+                    else:
+                        # 对于600DPI特别处理，强制使用较小的缩放值
+                        if dpi >= 600:
+                            scale_factor = 0.3
+                        else:
+                            scale_factor = dpi / 300.0
+                    
+                    print(f"Using scale factor: {scale_factor} for DPI: {dpi}")
+                    
+                    # 应用缩放比例
+                    title_size = int(title_size * scale_factor)
+                    axis_label_size = int(axis_label_size * scale_factor)
+                    tick_label_size = int(tick_label_size * scale_factor)
+                    legend_size = int(legend_size * scale_factor)
+                    
+                    # 调整所有子图的字体大小
                     for ax in orig_fig.get_axes():
-                        # 保存原始字体大小
-                        orig_title_size = ax.title.get_fontsize() if ax.title.get_text() else 10
-                        orig_xlabel_size = ax.xaxis.label.get_fontsize() if ax.xaxis.label.get_text() else 8
-                        orig_ylabel_size = ax.yaxis.label.get_fontsize() if ax.yaxis.label.get_text() else 8
-                        orig_tick_size = ax.xaxis.get_ticklabels()[0].get_fontsize() if len(ax.xaxis.get_ticklabels()) > 0 else 7
+                        # 调整标题和轴标签的字体大小
+                        if ax.title.get_text():
+                            ax.title.set_fontsize(title_size)
+                            ax.title.set_fontfamily(font_family)
+                        if ax.xaxis.label.get_text():
+                            ax.xaxis.label.set_fontsize(axis_label_size)
+                            ax.xaxis.label.set_fontfamily(font_family)
+                        if ax.yaxis.label.get_text():
+                            ax.yaxis.label.set_fontsize(axis_label_size)
+                            ax.yaxis.label.set_fontfamily(font_family)
                         
-                        # 根据DPI缩放字体
-                        ax.title.set_fontsize(orig_title_size * scale_factor)
-                        ax.xaxis.label.set_fontsize(orig_xlabel_size * scale_factor)
-                        ax.yaxis.label.set_fontsize(orig_ylabel_size * scale_factor)
-                        ax.tick_params(axis='both', which='major', labelsize=orig_tick_size * scale_factor)
+                        # 调整刻度标签的字体大小
+                        ax.tick_params(axis='both', which='major', labelsize=tick_label_size)
+                        
+                        # 调整刻度标签的字体系列
+                        for label in ax.get_xticklabels() + ax.get_yticklabels():
+                            label.set_fontfamily(font_family)
                         
                         # 如果有图例，调整图例字体大小
                         if ax.get_legend():
                             for text in ax.get_legend().get_texts():
-                                orig_legend_size = text.get_fontsize()
-                                text.set_fontsize(orig_legend_size * scale_factor)
+                                text.set_fontsize(legend_size * scale_factor)
+                                text.set_fontfamily(font_family)
+                        
+                        # 调整波长标签的大小 (380,400,420等)
+                        for artist in ax.get_children():
+                            # 检查是否为文本注释
+                            if isinstance(artist, matplotlib.text.Annotation):
+                                # 检查文本内容是否可能是波长标签(通常是3位数字)
+                                text = artist.get_text()
+                                if text.isdigit() and len(text) == 3:
+                                    # 波长标签使用与刻度标签相同的大小
+                                    artist.set_fontsize(tick_label_size)
+                                    artist.set_fontfamily(font_family)
                     
                     # Adjust plot layout to ensure legend elements also scale proportionally
                     orig_fig.tight_layout(pad=0.8)  # 减小边距，确保图表能更好地利用空间
@@ -304,10 +404,13 @@ class PlotDialog(QDialog):
                     cie_file_path = os.path.join(file_dir, f"{file_name_base}_cie{file_ext}")
                 else:
                     cie_file_path = file_path # Use the main path if only exporting this one
-                    
-                # Get CIE plot dimensions from settings - 确保使用正确的默认值
+                
+                # Get CIE plot dimensions from settings
                 width_px = self.settings['plot'].get('cie_width', 900)
                 height_px = self.settings['plot'].get('cie_height', 900)
+                
+                # 获取CIE图表的DPI
+                dpi = self.settings['plot'].get('cie_dpi', 300)  # 默认为300 dpi
                 
                 # Calculate inches size
                 width_inches = width_px / dpi
@@ -330,28 +433,77 @@ class PlotDialog(QDialog):
                     orig_fig.set_size_inches(width_inches, height_inches)
                     orig_fig.set_dpi(dpi)
                     
-                    # Scale font sizes based on DPI to maintain readability
-                    scale_factor = min(1.0, 300 / dpi)  # 缩放因子，高DPI时字体变小
+                    # 从设置中读取字体配置
+                    font_family = self.font_settings['default_font_family']
                     
-                    # 调整图表中的字体大小
+                    # 根据字体大小设置获取具体的字号
+                    cie_font_size = self.settings['plot'].get('cie_font_size', 'Medium')
+                    
+                    # 获取font_sizes配置中的具体值
+                    font_sizes = self.font_settings['font_sizes']
+                    font_size_config = font_sizes.get(cie_font_size, {})
+                    
+                    # 从配置中获取字体大小值，如果没有配置则使用默认值
+                    title_size = font_size_config.get('title_size', 12)
+                    axis_label_size = font_size_config.get('axis_label_size', 10)
+                    tick_label_size = font_size_config.get('tick_label_size', 8)
+                    legend_size = font_size_config.get('legend_size', 9)
+                    
+                    # 获取当前DPI对应的缩放比例
+                    dpi_str = str(dpi)
+                    if dpi_str in self.font_settings['dpi_scaling']:
+                        scale_factor = self.font_settings['dpi_scaling'][dpi_str]
+                    else:
+                        # 对于600DPI特别处理，强制使用较小的缩放值
+                        if dpi >= 600:
+                            scale_factor = 0.3
+                        else:
+                            scale_factor = dpi / 300.0
+                    
+                    print(f"Using scale factor: {scale_factor} for DPI: {dpi}")
+                    
+                    # 应用缩放比例
+                    title_size = int(title_size * scale_factor)
+                    axis_label_size = int(axis_label_size * scale_factor)
+                    tick_label_size = int(tick_label_size * scale_factor)
+                    legend_size = int(legend_size * scale_factor)
+                    
+                    # 调整所有子图的字体大小
                     for ax in orig_fig.get_axes():
-                        # 保存原始字体大小
-                        orig_title_size = ax.title.get_fontsize() if ax.title.get_text() else 10
-                        orig_xlabel_size = ax.xaxis.label.get_fontsize() if ax.xaxis.label.get_text() else 8
-                        orig_ylabel_size = ax.yaxis.label.get_fontsize() if ax.yaxis.label.get_text() else 8
-                        orig_tick_size = ax.xaxis.get_ticklabels()[0].get_fontsize() if len(ax.xaxis.get_ticklabels()) > 0 else 7
+                        # 调整标题和轴标签的字体大小
+                        if ax.title.get_text():
+                            ax.title.set_fontsize(title_size)
+                            ax.title.set_fontfamily(font_family)
+                        if ax.xaxis.label.get_text():
+                            ax.xaxis.label.set_fontsize(axis_label_size)
+                            ax.xaxis.label.set_fontfamily(font_family)
+                        if ax.yaxis.label.get_text():
+                            ax.yaxis.label.set_fontsize(axis_label_size)
+                            ax.yaxis.label.set_fontfamily(font_family)
                         
-                        # 根据DPI缩放字体
-                        ax.title.set_fontsize(orig_title_size * scale_factor)
-                        ax.xaxis.label.set_fontsize(orig_xlabel_size * scale_factor)
-                        ax.yaxis.label.set_fontsize(orig_ylabel_size * scale_factor)
-                        ax.tick_params(axis='both', which='major', labelsize=orig_tick_size * scale_factor)
+                        # 调整刻度标签的字体大小
+                        ax.tick_params(axis='both', which='major', labelsize=tick_label_size)
+                        
+                        # 调整刻度标签的字体系列
+                        for label in ax.get_xticklabels() + ax.get_yticklabels():
+                            label.set_fontfamily(font_family)
                         
                         # 如果有图例，调整图例字体大小
                         if ax.get_legend():
                             for text in ax.get_legend().get_texts():
-                                orig_legend_size = text.get_fontsize()
-                                text.set_fontsize(orig_legend_size * scale_factor)
+                                text.set_fontsize(legend_size * scale_factor)
+                                text.set_fontfamily(font_family)
+                        
+                        # 调整波长标签的大小 (380,400,420等)
+                        for artist in ax.get_children():
+                            # 检查是否为文本注释
+                            if isinstance(artist, matplotlib.text.Annotation):
+                                # 检查文本内容是否可能是波长标签(通常是3位数字)
+                                text = artist.get_text()
+                                if text.isdigit() and len(text) == 3:
+                                    # 波长标签使用与刻度标签相同的大小
+                                    artist.set_fontsize(tick_label_size)
+                                    artist.set_fontfamily(font_family)
                     
                     # Adjust plot layout to ensure legend elements also scale proportionally
                     orig_fig.tight_layout(pad=0.8)  # 减小边距，确保图表能更好地利用空间
@@ -368,7 +520,7 @@ class PlotDialog(QDialog):
                     )
                     
                     exported_files.append(cie_file_path)
-                    print(f"CIE Chromaticity Diagram exported to: {cie_file_path}")
+                    print(f"CIE Plot exported to: {cie_file_path}")
                     
                 finally:
                     # Restore original size and DPI
@@ -394,37 +546,21 @@ class PlotDialog(QDialog):
                     # Restore original layout
                     orig_fig.tight_layout()
                     orig_fig.canvas.draw()
-            
-            # If export is successful
-            if success and exported_files:
-                # Save export directory to settings
-                self.settings['export']['default_directory'] = file_dir
-                
-                # 保存当前的用户选择到设置中
-                if 'plot_export' not in self.settings:
-                    self.settings['plot_export'] = {}
-                
-                self.settings['plot_export']['format_index'] = format_idx
-                self.settings['plot_export']['dpi_index'] = resolution_idx
-                self.settings['plot_export']['export_reflectance'] = export_reflectance
-                self.settings['plot_export']['export_cie'] = export_cie
-                
-                # 保存设置
-                if self.parent:
-                    self.parent.save_settings()
-                
-                # Show success message
-                QMessageBox.information(self, "Success", f"Plots successfully exported to:\n{', '.join(exported_files)}")
-                
-                # Close dialog
-                self.accept()
-            else:
-                QMessageBox.warning(self, "Export Error", "An error occurred during export")
-        
         except Exception as e:
-            print(f"Error during plot export: {e}")
-            QMessageBox.critical(self, "Export Error", f"An error occurred during plot export: {e}")
+            print(f"Error exporting plots: {str(e)}")
+            QMessageBox.critical(self, "Export Error", f"An error occurred during plot export: {str(e)}")
             success = False
         
-        if not success:
-            QMessageBox.warning(self, "Export Error", "An error occurred during export") 
+        # Save current selections to settings
+        self.settings['plot_export']['format_index'] = self.ui.comboBox_Plot_Format.currentIndex()
+        self.settings['plot_export']['export_reflectance'] = export_reflectance
+        self.settings['plot_export']['export_cie'] = export_cie
+        
+        if success:
+            if len(exported_files) == 1:
+                QMessageBox.information(self, "Export Successful", f"Plot exported to:\n{exported_files[0]}")
+            else:
+                exported_files_text = "\n".join(exported_files)
+                QMessageBox.information(self, "Export Successful", f"Plots exported to:\n{exported_files_text}")
+            
+            self.accept()  # Close dialog only upon successful export 

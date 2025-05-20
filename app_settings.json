@@ -1,36 +1,63 @@
 {
     "general": {
-        "rho_lambda": 0.989,
-        "gamut": "None",
         "illuminant": "D65",
-        "rgb_values": "0 ... 1"
+        "rgb_values": "0 ... 1",
+        "rho_lambda": 0.989,
+        "gamut": "Adobe RGB"
     },
     "plot": {
-        "dpi": 300,
         "reflectance_width": 3200,
         "reflectance_height": 1600,
-        "cie_width": 1800,
-        "cie_height": 1800,
+        "cie_width": 900,
+        "cie_height": 900,
         "reflectance_title": "Reflectance Spectra of Measured Samples",
         "cie_title": "CIE Chromaticity Diagram",
         "reflectance_show_title": true,
         "cie_show_title": true,
         "reflectance_show_legend": true,
         "cie_show_legend": true,
-        "reflectance_color": "#1f77b4"
+        "reflectance_color": "#1f77b4",
+        "reflectance_font_size": "Medium",
+        "cie_font_size": "Medium",
+        "export_font_family": "Arial",
+        "export_title_size": 12,
+        "export_axis_label_size": 10,
+        "export_tick_label_size": 8,
+        "export_legend_size": 9,
+        "export_dpi_scaling": {
+            "150": 1.0,
+            "300": 0.9,
+            "600": 0.8
+        },
+        "dpi": 600,
+        "reflectance_dpi": 600,
+        "cie_dpi": 300
     },
     "export": {
         "separator": "Point",
         "copy_header": "Yes",
-        "default_directory": "/Users/zhiwei/Desktop/12/11111",
+        "default_directory": "/Users/zhiwei",
         "default_format": "xlsx",
         "include_header": true,
-        "decimal_places": 6
+        "decimal_places": 6,
+        "last_directory": "/Users/zhiwei",
+        "last_plot_directory": "/Users/zhiwei/Desktop/t"
+    },
+    "import": {
+        "default_directory": "/Users/zhiwei",
+        "black_reference_directory": "/Users/zhiwei",
+        "white_reference_directory": "/Users/zhiwei",
+        "measurement_directory": "/Users/zhiwei"
     },
     "plot_export": {
+        "dpi_index": 1,
         "format_index": 0,
-        "dpi_index": 2,
         "export_reflectance": true,
         "export_cie": true
+    },
+    "export_dialog": {
+        "format_index": 0,
+        "export_rho": true,
+        "export_color": true
     }
 }
