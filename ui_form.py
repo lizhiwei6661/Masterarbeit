@@ -19,13 +19,13 @@ class Ui_MainWindow(object):
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         
-        # 创建主布局
+        # Create main layout
         self.mainLayout = QtWidgets.QVBoxLayout(self.centralwidget)
         self.mainLayout.setObjectName("mainLayout")
         self.mainLayout.setContentsMargins(8, 8, 8, 12)  # 减小边距
         self.mainLayout.setSpacing(8)  # 减小间距
         
-        # 创建反射率显示区域
+        # 创建reflectance显示区域
         self.reflectanceGroup = QtWidgets.QGroupBox(self.centralwidget)
         self.reflectanceGroup.setTitle("")
         self.reflectanceGroup.setFlat(True)
@@ -36,7 +36,7 @@ class Ui_MainWindow(object):
         self.reflectanceLayout.setSpacing(5)
         self.reflectanceLayout.setObjectName("reflectanceLayout")
         
-        # 添加反射率视图
+        # 添加reflectance视图
         self.view_Reflections = QtWidgets.QGraphicsView(self.reflectanceGroup)
         self.view_Reflections.setObjectName("view_Reflections")
         self.view_Reflections.setMinimumHeight(150)  # 减小最小高度
@@ -57,7 +57,7 @@ class Ui_MainWindow(object):
         
         self.reflectanceLayout.addLayout(self.reflectanceButtonLayout)
         
-        # 添加反射率组到主布局
+        # 添加reflectance组到主布局
         self.mainLayout.addWidget(self.reflectanceGroup)
         
         # 创建下半部分布局
@@ -106,7 +106,7 @@ class Ui_MainWindow(object):
         # 添加CIE组到底部布局，减小比例
         self.bottomLayout.addWidget(self.cieGroup, 1)
         
-        # 右侧表格组 - 调整尺寸和策略
+        # 右侧表格组 - 调整尺寸and策略
         self.tableGroup = QtWidgets.QGroupBox(self.centralwidget)
         self.tableGroup.setTitle("")
         self.tableGroup.setFlat(True)

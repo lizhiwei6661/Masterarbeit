@@ -37,7 +37,7 @@ class PlotDialog(QDialog):
         self.settings = settings
         self.parent = parent
         
-        # 加载字体设置
+        # loaded字体设置
         self.font_settings = self.load_font_settings()
         
         # Initialize UI
@@ -53,7 +53,7 @@ class PlotDialog(QDialog):
         default_filename = "plot.png"
         self.ui.lineEdit_Plot_File.setText(os.path.join(default_dir, default_filename))
         
-        # 从设置中加载上次的选择
+        # Load last selection from settings
         self.load_previous_selections()
         
         # Connect browse button signal
@@ -72,7 +72,7 @@ class PlotDialog(QDialog):
         self.check_selection() # Initial check
     
     def load_font_settings(self):
-        """加载字体设置文件"""
+        """loaded字体Settings file"""
         # 默认字体设置
         default_settings = {
             "font_families": ["Arial", "Times New Roman", "Helvetica"],
@@ -104,7 +104,7 @@ class PlotDialog(QDialog):
             }
         }
         
-        # 尝试从文件加载
+        # 尝试从文件loaded
         try:
             script_dir = os.path.dirname(os.path.abspath(__file__))
             font_settings_path = os.path.join(script_dir, 'font_settings.json')
@@ -117,7 +117,7 @@ class PlotDialog(QDialog):
         except Exception as e:
             print(f"Error loading font settings: {str(e)}")
         
-        # 如果加载失败，返回默认设置
+        # 如果loaded失败，返回默认设置
         print("Using default font settings")
         return default_settings
     
@@ -125,7 +125,7 @@ class PlotDialog(QDialog):
         """Load previous user selections from settings."""
         plot_export_settings = self.settings['plot_export']
         
-        # 设置文件格式
+        # Settings file format
         format_index = plot_export_settings.get('format_index', 0)  # 默认为PNG (index 0)
         self.ui.comboBox_Plot_Format.setCurrentIndex(format_index)
         
@@ -136,7 +136,7 @@ class PlotDialog(QDialog):
         self.ui.checkBox_Plot_Reflectance.setChecked(export_reflectance)
         self.ui.checkBox_Plot_CIE.setChecked(export_cie)
         
-        # 更新文件名扩展名以匹配选择的格式
+        # Update filename extension to match selected format
         self.update_filename_extension()
     
     def update_filename_extension(self):
@@ -145,7 +145,7 @@ class PlotDialog(QDialog):
         if not current_path:
             return
             
-        # 获取当前文件名（不含扩展名）和目录
+        # 获取当前文件名（不含扩展名）and目录
         dir_path = os.path.dirname(current_path)
         filename = os.path.basename(current_path)
         filename_base = os.path.splitext(filename)[0]
@@ -204,7 +204,7 @@ class PlotDialog(QDialog):
                  file_path += ext
             self.ui.lineEdit_Plot_File.setText(file_path)
             
-            # 保存当前选择的目录
+            # Save currently selected directory
             self.settings['export']['last_plot_directory'] = os.path.dirname(file_path)
     
     def on_accepted(self):
@@ -304,7 +304,7 @@ class PlotDialog(QDialog):
                     if dpi_str in self.font_settings['dpi_scaling']:
                         scale_factor = self.font_settings['dpi_scaling'][dpi_str]
                     else:
-                        # 对于600DPI特别处理，强制使用较小的缩放值
+                        # 对于600DPI特别Processing，强制使用较小的缩放值
                         if dpi >= 600:
                             scale_factor = 0.3
                         else:
@@ -320,7 +320,7 @@ class PlotDialog(QDialog):
                     
                     # 调整所有子图的字体大小
                     for ax in orig_fig.get_axes():
-                        # 调整标题和轴标签的字体大小
+                        # 调整标题and轴标签的字体大小
                         if ax.title.get_text():
                             ax.title.set_fontsize(title_size)
                             ax.title.set_fontfamily(font_family)
@@ -344,14 +344,14 @@ class PlotDialog(QDialog):
                                 text.set_fontsize(legend_size * scale_factor)
                                 text.set_fontfamily(font_family)
                         
-                        # 调整波长标签的大小 (380,400,420等)
+                        # 调整wavelength标签的大小 (380,400,420等)
                         for artist in ax.get_children():
                             # 检查是否为文本注释
                             if isinstance(artist, matplotlib.text.Annotation):
-                                # 检查文本内容是否可能是波长标签(通常是3位数字)
+                                # 检查文本内容是否可能是wavelength标签(通常是3位数字)
                                 text = artist.get_text()
                                 if text.isdigit() and len(text) == 3:
-                                    # 波长标签使用与刻度标签相同的大小
+                                    # wavelength标签使用与刻度标签相同的大小
                                     artist.set_fontsize(tick_label_size)
                                     artist.set_fontfamily(font_family)
                     
@@ -377,9 +377,9 @@ class PlotDialog(QDialog):
                     orig_fig.set_size_inches(orig_size)
                     orig_fig.set_dpi(orig_dpi)
                     
-                    # 恢复原始字体大小
+                    # 恢复Original字体大小
                     for ax in orig_fig.get_axes():
-                        # 恢复保存的原始字体大小
+                        # 恢复保存的Original字体大小
                         if ax.title.get_text():
                             ax.title.set_fontsize(10)  # 恢复到默认值
                         if ax.xaxis.label.get_text():
@@ -454,7 +454,7 @@ class PlotDialog(QDialog):
                     if dpi_str in self.font_settings['dpi_scaling']:
                         scale_factor = self.font_settings['dpi_scaling'][dpi_str]
                     else:
-                        # 对于600DPI特别处理，强制使用较小的缩放值
+                        # 对于600DPI特别Processing，强制使用较小的缩放值
                         if dpi >= 600:
                             scale_factor = 0.3
                         else:
@@ -470,7 +470,7 @@ class PlotDialog(QDialog):
                     
                     # 调整所有子图的字体大小
                     for ax in orig_fig.get_axes():
-                        # 调整标题和轴标签的字体大小
+                        # 调整标题and轴标签的字体大小
                         if ax.title.get_text():
                             ax.title.set_fontsize(title_size)
                             ax.title.set_fontfamily(font_family)
@@ -494,14 +494,14 @@ class PlotDialog(QDialog):
                                 text.set_fontsize(legend_size * scale_factor)
                                 text.set_fontfamily(font_family)
                         
-                        # 调整波长标签的大小 (380,400,420等)
+                        # 调整wavelength标签的大小 (380,400,420等)
                         for artist in ax.get_children():
                             # 检查是否为文本注释
                             if isinstance(artist, matplotlib.text.Annotation):
-                                # 检查文本内容是否可能是波长标签(通常是3位数字)
+                                # 检查文本内容是否可能是wavelength标签(通常是3位数字)
                                 text = artist.get_text()
                                 if text.isdigit() and len(text) == 3:
-                                    # 波长标签使用与刻度标签相同的大小
+                                    # wavelength标签使用与刻度标签相同的大小
                                     artist.set_fontsize(tick_label_size)
                                     artist.set_fontfamily(font_family)
                     
@@ -527,9 +527,9 @@ class PlotDialog(QDialog):
                     orig_fig.set_size_inches(orig_size)
                     orig_fig.set_dpi(orig_dpi)
                     
-                    # 恢复原始字体大小
+                    # 恢复Original字体大小
                     for ax in orig_fig.get_axes():
-                        # 恢复保存的原始字体大小
+                        # 恢复保存的Original字体大小
                         if ax.title.get_text():
                             ax.title.set_fontsize(10)  # 恢复到默认值
                         if ax.xaxis.label.get_text():

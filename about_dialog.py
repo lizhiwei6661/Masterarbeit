@@ -13,8 +13,21 @@ class AboutDialog(QDialog):
         self.setWindowTitle("About")
         self.resize(500, 400)
         
-        # 创建主布局
+        # Create main layout
         layout = QVBoxLayout(self)
+        
+        # 添加应用图标
+        icon_label = QLabel()
+        try:
+            pixmap = QPixmap("app_icon.png")
+            if not pixmap.isNull():
+                # 缩放图标到合适大小
+                scaled_pixmap = pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                icon_label.setPixmap(scaled_pixmap)
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(icon_label)
+        except:
+            pass
         
         # 添加标题
         title_label = QLabel("Aleksameter App")
@@ -42,7 +55,10 @@ class AboutDialog(QDialog):
         Developed as part of a Master's thesis project to migrate from MATLAB to Python.
         </p>
         <p style='text-align: center;'>
-        &copy; 2023 All rights reserved.
+        Authors: Zhiwei Li and Marina Leontopoulos
+        </p>
+        <p style='text-align: center;'>
+        &copy; 2025 All rights reserved.
         </p>
         """)
         layout.addWidget(description)

@@ -1,0 +1,1517 @@
+\chapter{Software-Architektur und Design}
+
+\section{Systemarchitektur-Entwurf}
+
+\subsection{Technologie-Stack Integration}
+
+Basierend auf der in Kapitel \ref{sec:software_engineering} durchgeführten umfassenden Evaluierung zwischen MATLAB und Python wurde eine Python-basierte Lösung mit den dort beschriebenen Kernkomponenten implementiert. Die finale Technologie-Integration umfasst:
+
+\begin{itemize}
+    \item \textbf{Numerische Basis:} NumPy \parencite{NumPy} und SciPy \parencite{SciPy} für wissenschaftliche Berechnungen
+    \item \textbf{GUI-Framework:} PySide6 \parencite{PySide6} mit Qt6 \parencite{Qt6} für plattformübergreifende Benutzeroberflächen
+    \item \textbf{Visualisierung:} Matplotlib \parencite{Matplotlib} mit Qt-Backend-Integration
+    \item \textbf{Farbmetrische Berechnungen:} Colour Science \parencite{ColourScience} für CIE-konforme Implementierung
+\end{itemize}
+
+\subsection{Model-View-Controller (MVC) Architektur}
+
+Die Software folgt dem bewährten MVC-Designmuster zur Gewährleistung von Modularität, Testbarkeit und Wartbarkeit. Diese Architektur ermöglicht eine klare Trennung der Geschäftslogik von der Präsentationsschicht und facilitiert die Wartung und Erweiterung des Systems.
+
+Die Implementierung gliedert sich in drei Hauptkomponenten:
+
+\textbf{Model (Datenmodell):} Die ColorCalculator-Klasse fungiert als zentrales Datenmodell und kapselt die gesamte farbmetrische Berechnungslogik. Sie verwaltet spektrale Daten, CIE-Standards und Kalibrierungsparameter unabhängig von der Darstellungsschicht.
+
+\textbf{View (Präsentationsschicht):} Das MainWindow und die verschiedenen Dialog-Klassen bilden die View-Komponente. Sie sind ausschließlich für die Darstellung der Daten und die Benutzerinteraktion zuständig, ohne direkte Kenntnisse der Berechnungslogik.
+
+\textbf{Controller (Steuerungslogik):} Die MainWindow-Klasse übernimmt zusätzlich Controller-Funktionen und vermittelt zwischen Model und View. Sie koordiniert Benutzeraktionen, triggert Berechnungen und aktualisiert die Anzeige entsprechend.
+
+\begin{lstlisting}[language=Python, caption=MVC-Architektur Implementation, frame=single]
+class MainWindow(QMainWindow):  # Controller + View
+    def __init__(self):
+        # Model-Instanz erstellen
+        self.color_calculator = ColorCalculator()  # Model
+        
+        # View-Komponenten initialisieren
+        self.ui = Ui_MainWindow()  # View
+        self.ui.setupUi(self)
+        
+        # Controller-Verbindungen etablieren
+        self.connect_model_view_interactions()
+    
+    def process_imported_data(self, import_data):  # Controller-Funktion
+        # Daten an Model weitergeben
+        results = self.color_calculator.process_measurement(
+            import_data['values'], import_data['wavelengths']
+        )
+        
+        # View mit Ergebnissen aktualisieren
+        self.update_results_display(results)
+\end{lstlisting}
+
+Diese Architektur ermöglicht es, Änderungen an der Berechnungslogik vorzunehmen, ohne die Benutzeroberfläche zu beeinträchtigen, und umgekehrt.
+
+\subsection{MATLAB-zu-Python Algorithmus-Migration}
+
+Der kritischste Aspekt der Software-Neuentwicklung war die präzise Migration der farbmetrischen Berechnungsalgorithmen von MATLAB zu Python. Dabei wurde besonderer Wert auf die Beibehaltung der numerischen Genauigkeit gelegt.
+
+\begin{lstlisting}[language=Python, caption=Kernfunktion für CIE XYZ Farbkonversion]
+def calculate_XYZ_from_reflectance(reflectance_data, illuminant_data, observer_data):
+    """
+    Berechnet CIE XYZ Farbwerte aus Reflektanzspektren
+    nach CIE 15:2004 Standard
+    """
+    # Interpolation auf Standard-Wellenlaengen
+    wavelengths = np.arange(380, 781, 1)
+    R = interpolate_spectrum(reflectance_data, wavelengths)
+    S = interpolate_spectrum(illuminant_data, wavelengths) 
+    
+    # CIE Standard Observer Funktionen
+    x_bar, y_bar, z_bar = get_observer_functions(observer_data)
+    
+    # Tristimulus-Werte Berechnung
+    k = 100 / np.trapz(S * y_bar, wavelengths)
+    X = k * np.trapz(R * S * x_bar, wavelengths)
+    Y = k * np.trapz(R * S * y_bar, wavelengths)
+    Z = k * np.trapz(R * S * z_bar, wavelengths)
+    
+    return X, Y, Z
+\end{lstlisting}
+
+\subsubsection{MATLAB-kompatible Präzisionsberechnungen}
+
+Zur Gewährleistung identischer numerischer Ergebnisse implementiert das System spezialisierte Berechnungsmethoden, die exakt die MATLAB-Algorithmen replizieren. Diese Kompatibilität ist essentiell, da geringfügige Abweichungen zu unterschiedlichen Farbergebnissen führen könnten. Die Implementierung folgt der mathematischen Struktur der ursprünglichen MATLAB-Funktionen:
+
+\begin{lstlisting}[language=Python, caption=MATLAB-kompatible XYZ Berechnung]
+def calculate_xyz_matlab_compatible(self, reflectance, wavelengths):
+    """
+    Berechnet CIE XYZ Werte mit vollstaendiger MATLAB-Kompatibilitaet
+    Repliziert exakt die MATLAB xyXYZ Funktion
+    """
+    # MATLAB: phi = S.*data;
+    phi = illuminant_data * matched_reflectance
+    
+    # MATLAB: k = 100./(sum(S.*app.xyzBar(:,2)));
+    k = 100.0 / np.sum(illuminant_data * cie_y)
+    
+    # MATLAB: X = k.*sum(phi.*app.xyzBar(:,1));
+    X = k * np.sum(phi * cie_x)
+    Y = k * np.sum(phi * cie_y)
+    Z = k * np.sum(phi * cie_z)
+    
+    return np.array([X, Y, Z])
+\end{lstlisting}
+
+\subsubsection{Wellenlängen-Matching System}
+
+Das System löst Inkompatibilitäten zwischen verschiedenen Wellenlängenbereichen (5nm vs. 1nm Auflösung) durch intelligente Interpolations- und Anpassungsalgorithmen. Es implementiert eine MATLAB-kompatible Anpassungsstrategie:
+
+\begin{lstlisting}[language=Python, caption=MATLAB-Stil Wellenlängen-Matching]
+def match_wavelength_matlab_style(self, lambda_target, data, lambda_source):
+    """
+    Wellenlaengen-Anpassung nach MATLAB matchLambda Funktion
+    """
+    if np.array_equal(lambda_source, lambda_target):
+        return data
+    
+    # Interpolation fuer unterschiedliche Schrittweiten
+    interpolated_data = np.interp(
+        lambda_target, lambda_source, data,
+        left=0, right=0  # Ausserhalb der Grenzen auf 0 setzen
+    )
+    return interpolated_data
+\end{lstlisting}
+
+\section{Benutzeroberflächen-Design}
+
+\subsection{Hauptfenster-Layout}
+
+Das Hauptfenster implementiert ein adaptives Drei-Panel-Layout für optimale wissenschaftliche Datenvisualisierung, wie in Abbildung \ref{fig:Mainwindow_python} dargestellt:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/Mainwindow_python.png}
+\caption{Hauptfenster mit Drei-Panel-Layout für wissenschaftliche Datenvisualisierung}
+    \label{fig:Mainwindow_python}
+\end{figure}
+
+\begin{lstlisting}[language=Python, caption=Hauptfenster Layout-Konfiguration]
+def setup_main_layout(self):
+    """Konfiguriert das Drei-Panel-Layout des Hauptfensters"""
+    # Hauptsplitter (horizontal)
+    main_splitter = QSplitter(Qt.Horizontal)
+    
+    # Linkes Panel: Eingabeparameter und Kontrollen
+    left_panel = self.create_control_panel()
+    
+    # Mittleres Panel: Datenvisualisierung
+    center_panel = self.create_visualization_panel()
+    
+    # Rechtes Panel: Ergebnisse und Farbinformationen  
+    right_panel = self.create_results_panel()
+    
+    main_splitter.addWidget(left_panel)
+    main_splitter.addWidget(center_panel) 
+    main_splitter.addWidget(right_panel)
+    
+    # Adaptive Groessenanpassung
+    main_splitter.setSizes([300, 600, 300])
+\end{lstlisting}
+
+\subsubsection{Automatisches Fenster-Management}
+
+Das System implementiert adaptive Layoutalgorithmen für verschiedene Bildschirmgrößen und automatische UI-Anpassung:
+
+\begin{lstlisting}[language=Python, caption=Responsive Fenster-Management]
+def center_window_on_screen(self):
+    """Zentriert das Fenster automatisch auf dem Bildschirm"""
+    center_point = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+    fg = self.frameGeometry()
+    fg.moveCenter(center_point)
+    self.move(fg.topLeft())
+
+def resizeEvent(self, event):
+    """Behandelt Fenstergroessenaenderungen und passt UI-Elemente an"""
+    super().resizeEvent(event)
+    self.adjust_table_columns()
+    
+    # Diagramm-Updates
+    if hasattr(self, 'reflectance_canvas'):
+        self.reflectance_canvas.draw()
+    if hasattr(self, 'cie_canvas'):
+        self.cie_canvas.draw()
+\end{lstlisting}
+
+\subsubsection{Intelligente Tabellenspalten-Management}
+
+Das adaptive Spaltenverwaltungssystem optimiert automatisch die Tabellenbreiten basierend auf Fenstergröße und Inhaltstyp:
+
+\begin{lstlisting}[language=Python, caption=Adaptive Tabellenspalten-Anpassung]
+def adjust_table_columns(self):
+    """Passt Tabellenspaltenbreiten adaptiv an verfuegbaren Platz an"""
+    table_width = self.ui.table_results.viewport().width()
+    header = self.ui.table_results.horizontalHeader()
+    
+    # Feste Breiten fuer spezielle Spalten (Farbblock: 30px)
+    color_width = 30
+    fixed_width = color_width
+    
+    # Berechnung optimaler Breiten fuer Datenspalten
+    for col in [2, 3, 4, 5]:  # x, y, sRGB Spalten
+        width = max(60 if col <= 3 else 120, header.sectionSize(col))
+        fixed_width += width
+    
+    # Adaptive Dateinamen-Spaltenbreite
+    available_width = table_width - fixed_width - 5
+    filename_width = max(80, min(200, available_width))
+    
+    self.ui.table_results.setColumnWidth(1, filename_width)
+\end{lstlisting}
+
+\subsubsection{Anwendungslebenszyklus-Management}
+
+Bei Anwendungsbeendigung werden automatisch alle Benutzereinstellungen gespeichert:
+
+\begin{lstlisting}[language=Python, caption=Automatische Einstellungsspeicherung bei Beendigung]
+def closeEvent(self, event):
+    """Behandelt Anwendungsbeendigung und speichert alle Einstellungen"""
+    # Alle aktuellen Einstellungen in Konfigurationsdatei speichern
+    self.save_settings()
+    
+    # Standard-Beendigungsverhalten aufrufen
+    super().closeEvent(event)
+\end{lstlisting}
+
+Diese Funktion gewährleistet, dass keine Benutzereinstellungen zwischen Sessions verloren gehen.
+
+\subsection{Wissenschaftliche Datenvisualisierung}
+
+Das zentrale Visualisierungssystem der Aleksameter-Software bietet eine integrierte Darstellung spektraler Messdaten und berechneter Farbwerte. Nach dem Import von Beispieldaten wird ein vollständiges Dashboard mit Reflektanzspektren, CIE-Chromatizitätsdiagramm und farbkodierten Ergebnistabellen angezeigt.
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/hauptfenster_mit_daten_python.png}
+\caption{Hauptfenster mit importierten Beispieldaten - Reflektanzspektren, CIE-Diagramm und Ergebnistabelle}
+\label{fig:hauptfenster_mit_daten}
+\end{figure}
+
+Wie in \ref{fig:hauptfenster_mit_daten} dargestellt, zeigt das Hauptfenster alle wesentlichen Visualisierungselemente:
+
+\begin{itemize}
+    \item \textbf{Reflektanzspektren-Panel (links):} Spektrale Kurven aller importierten Messungen mit Wellenlängenbereich 380-780nm
+    \item \textbf{CIE-Chromatizitätsdiagramm (rechts oben):} Darstellung der berechneten CIE-Koordinaten mit konfigurierbarem Gamut-Overlay
+    \item \textbf{Ergebnistabelle (rechts unten):} Farbmetrische Werte mit integrierten visuellen Farbblöcken
+\end{itemize}
+
+\subsubsection{Reflektanzspektren-Darstellung}
+
+Das zentrale Visualisierungspanel bietet hochqualitative, publikationsreife Darstellungen der spektralen Reflektanzdaten mit konfigurierbaren Darstellungsoptionen. Wie im linken Panel von \ref{fig:hauptfenster_mit_daten} zu sehen, werden die Reflektanzspektren automatisch farbkodiert dargestellt, wobei jede Messung eine eindeutige Farbe erhält. Das System unterstützt:
+
+\begin{itemize}
+    \item \textbf{Automatische Skalierung:} Dynamische Y-Achsen-Anpassung basierend auf Datenbereich
+    \item \textbf{Interaktive Zoom-Funktionen:} Detailbetrachtung spezifischer Wellenlängenbereiche
+    \item \textbf{Export-Funktionen:} Direkte Speicherung in publikationsreife Formate
+\end{itemize}
+
+\subsubsection{CIE-Chromatizitätsdiagramm mit Farbort-Visualisierung}
+
+Das CIE-Diagramm visualisiert die berechneten Chromatizitätskoordinaten (x, y) der gemessenen Proben. Wie im rechten oberen Panel von \ref{fig:hauptfenster_mit_daten} dargestellt, berechnet und visualisiert das CIE-Diagramm folgende Parameter:
+
+\begin{lstlisting}[language=Python, caption=CIE-Koordinaten Berechnung]
+def calculate_cie_coordinates(self, xyz_values):
+    """Berechnet CIE xy-Chromatizitaetskoordinaten aus XYZ-Werten"""
+    X, Y, Z = xyz_values
+    
+    # Normierung zur Berechnung der Chromatizitaetskoordinaten
+    sum_xyz = X + Y + Z
+    
+    if sum_xyz > 0:
+        x = X / sum_xyz
+        y = Y / sum_xyz
+    else:
+        x, y = 0, 0  # Fallback fuer ungueltige Daten
+    
+    return x, y
+\end{lstlisting}
+
+Die berechneten CIE-Koordinaten repräsentieren die Farbörter der gemessenen Proben im CIE 1931 Farbraum. Jeder Punkt im Diagramm entspricht einer importierten Messung und wird entsprechend der berechneten RGB-Werte eingefärbt dargestellt.
+
+Das System unterstützt die Visualisierung verschiedener Farbräume zur Bewertung der Darstellbarkeit:
+
+\begin{itemize}
+    \item \textbf{Standard-Farbräume:} sRGB, Adobe RGB für allgemeine Anwendungen
+    \item \textbf{VR-Headset-Farbräume:} HTC VIVE Pro Eye, Meta Oculus Quest 1/2, Meta Oculus Rift für VR-spezifische Bewertung
+    \item \textbf{Gamut-Bewertung:} Automatische Identifikation von Out-of-Gamut Farben mit visueller Kennzeichnung
+\end{itemize}
+
+\subsubsection{Farbmetrische Ergebnistabelle mit integrierten Farbblöcken}
+
+Die Haupttabelle kombiniert numerische Daten mit visueller Farbdarstellung und zeigt die berechneten Farbwerte in übersichtlicher Form. Das rechte untere Panel in \ref{fig:hauptfenster_mit_daten} zeigt die Implementierung:
+
+\begin{lstlisting}[language=Python, caption=Farbblock-Integration in Ergebnistabelle]
+def update_color_table(self, color_data):
+    """Aktualisiert die Farbtabelle mit berechneten Werten"""
+    for row, (name, lab_values, rgb_values) in enumerate(color_data):
+        # Numerische Werte setzen
+        self.color_table.setItem(row, 0, QTableWidgetItem(name))
+        self.color_table.setItem(row, 1, QTableWidgetItem(f"{lab_values[0]:.2f}"))
+        self.color_table.setItem(row, 2, QTableWidgetItem(f"{lab_values[1]:.2f}"))
+        self.color_table.setItem(row, 3, QTableWidgetItem(f"{lab_values[2]:.2f}"))
+        
+        # Visueller Farbblock
+        color_widget = QWidget()
+        color_widget.setStyleSheet(
+            f"background-color: rgb({rgb_values[0]}, {rgb_values[1]}, {rgb_values[2]})"
+        )
+        self.color_table.setCellWidget(row, 4, color_widget)
+\end{lstlisting}
+
+Die Tabelle zeigt folgende berechnete Werte:
+
+\begin{itemize}
+    \item \textbf{Dateiname:} Bezeichnung der ursprünglichen Messdatei
+    \item \textbf{CIE xy-Koordinaten:} Chromatizitätskoordinaten
+    \item \textbf{sRGB-Werte:} Sowohl lineare als auch gamma-korrigierte RGB-Werte
+    \item \textbf{Visuelle Farbblöcke:} Direkte Farbdarstellung der berechneten RGB-Werte
+\end{itemize}
+
+Diese integrierte Darstellung ermöglicht es dem Benutzer, sowohl die numerischen Farbwerte als auch die visuelle Farberscheinung gleichzeitig zu bewerten und potenzielle Abweichungen oder Unregelmäßigkeiten schnell zu identifizieren.
+
+\subsection{Datenkopierfunktionen}
+
+Das System bietet umfassende Datenkopierfunktionen für verschiedene Anwendungsfälle:
+
+\subsubsection{Globale Datenkopierfunktion}
+
+Für die Integration in wissenschaftliche Workflows ist die Möglichkeit des schnellen Datenexports in andere Anwendungen von zentraler Bedeutung. Die globale Datenkopierfunktion ermöglicht es, alle berechneten Ergebnisse mit einem einzigen Tastendruck (Ctrl+C) in die Systemzwischenablage zu kopieren.
+
+Die Funktion formatiert die Daten automatisch in einem tabulatorgetrennten Format, das von den meisten wissenschaftlichen Anwendungen wie Excel, SPSS oder R direkt verarbeitet werden kann:
+
+\begin{lstlisting}[language=Python, caption={Komplette Datenkopierfunktion}, 
+    label={lst:copy_all_data}, breaklines=true, breakatwhitespace=true, columns=fullflexible]
+def copy_all_data(self):
+    """Kopiert alle Daten in die Zwischenablage (Ctrl+C)"""
+    if not self.data['results']:
+        QMessageBox.information(self, "Information", 
+                                "Keine Daten zum Kopieren verfuegbar.")
+        return
+    
+    # Erstelle Kopiertext mit Spaltenheadern
+    copy_text = ("Datei\tx\ty\tR (linear)\tG (linear)\tB (linear)\t"
+                 "R (gamma)\tG (gamma)\tB (gamma)\n")
+    
+    for result in self.data['results']:
+        base_name = os.path.splitext(result['file_name'])[0]
+        copy_text += f"{base_name}\t"
+        copy_text += (f"{result['x']:.6f}\t{result['y']:.6f}\t"
+                      f"{result['rgb_linear'][0]:.6f}\t"
+                      f"{result['rgb_linear'][1]:.6f}\t"
+                      f"{result['rgb_linear'][2]:.6f}\t"
+                      f"{result['rgb_gamma'][0]:.6f}\t"
+                      f"{result['rgb_gamma'][1]:.6f}\t"
+                      f"{result['rgb_gamma'][2]:.6f}\n")
+    
+    # In Zwischenablage kopieren
+    clipboard = QApplication.clipboard()
+    clipboard.setText(copy_text)
+    
+    QMessageBox.information(self, "Erfolg", 
+        f"Daten von {len(self.data['results'])} Dateien in Zwischenablage kopiert.")
+\end{lstlisting}
+
+
+\subsubsection{Selektive Tabellendaten-Kopierfunktion}
+
+Ergänzend zur globalen Datenkopierfunktion bietet das System eine selektive Kopierfunktion, die nur die aktuell in der Tabelle sichtbaren Daten erfasst. Dies ist besonders nützlich bei gefilterten oder sortierten Ansichten, wo nur bestimmte Datensätze relevant sind.
+
+Die selektive Kopierfunktion berücksichtigt die aktuelle Tabellenansicht und schließt nicht-datenhaltige Spalten (wie Farbblöcke) automatisch aus:
+
+\begin{lstlisting}[language=Python, caption=Tabellendaten-Kopierfunktion]
+def copy_table_data(self):
+    """Kopiert sichtbare Tabellendaten in die Zwischenablage"""
+    if self.ui.table_results.rowCount() == 0:
+        QMessageBox.information(self, "Information", "Keine Tabellendaten verfuegbar.")
+        return
+    
+    # Erstelle Header
+    headers = [ ]
+    for col in range(self.ui.table_results.columnCount()):
+        headers.append(self.ui.table_results.horizontalHeaderItem(col).text())
+    
+    copy_text = "\t".join(headers) + "\n"
+    
+    # Erstelle Datenzeilen (ohne Farbblock-Spalte)
+    for row in range(self.ui.table_results.rowCount()):
+        row_data = [ ]
+        for col in range(1, self.ui.table_results.columnCount()):  # Ueberspringe Farbblock
+            item = self.ui.table_results.item(row, col)
+            row_data.append(item.text() if item else "")
+        copy_text += "\t".join(row_data) + "\n"
+    
+    clipboard = QApplication.clipboard()
+    clipboard.setText(copy_text)
+\end{lstlisting}
+
+\subsection{Keyboard-Shortcuts Integration}
+
+Das System implementiert eine umfassende Tastenkombinations-Unterstützung für effiziente Bedienung:
+
+\begin{table}[H]
+\centering
+\caption{Tastenkombinationen für Hauptfunktionen}
+\label{tab:shortcuts}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Tastenkombination} & \textbf{Funktion} \\
+\hline
+Ctrl+O & Import Dialog öffnen \\
+Ctrl+E & Export Dialog öffnen \\
+Ctrl+P & Plot Dialog öffnen \\
+Ctrl+. & Settings Dialog öffnen \\
+Ctrl+C & Alle Daten kopieren \\
+Ctrl+K & Daten löschen \\
+F1 & User Guide anzeigen \\
+Ctrl+Q & Anwendung beenden \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Interaktive Bedienelemente}
+
+Das Hauptfenster bietet zusätzliche Buttons für direkten Zugriff auf spezialisierte Funktionen:
+
+\subsubsection{Datenvisualisierungs-Buttons}
+
+\textbf{Show Reflections Data Button:} Öffnet den Reflektanzdaten-Dialog für tabellarische Datenansicht mit Copy-Funktionalität.
+
+\textbf{Show CIE Diagram Button:} Öffnet das erweiterte CIE-Chromatizitätsdiagramm in einem separaten, vergrößerbaren Fenster für detaillierte Farbanalyse.
+
+\textbf{Copy to Clipboard Button:} Kopiert die aktuelle Tabellenansicht in die Zwischenablage, wobei Farbblöcke automatisch ausgeschlossen werden.
+
+\begin{lstlisting}[language=Python, caption=Button-Event-Verbindungen]
+def connect_button_actions(self):
+    """Verbindet Button-Events mit entsprechenden Funktionen"""
+    self.ui.pushButton_show_Reflections_Data.clicked.connect(
+    self.show_reflectance_data)
+    self.ui.pushButton_copydata.clicked.connect(self.copy_table_data)
+    self.ui.pushButton_show_CIE_Data.clicked.connect(self.show_cie_data)
+\end{lstlisting}
+
+\section{Dialog-Systeme}
+
+\subsection{Import Dialog - Erweiterte Datenerfassung}
+
+Der Import Dialog unterstützt zwei verschiedene Betriebsmodi für unterschiedliche Messszenarien:
+
+\subsubsection{Aleksameter-Modus}
+Im Aleksameter-Modus wird die vollständige Integration mit dem Aleksameter-Gerät ermöglicht. Wie in \ref{fig:import_aleksameter} dargestellt, bietet dieser Modus spezialisierte Kalibrierungsfunktionen:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.8\textwidth]{figures/import_dialog_aleksameter.png}
+\caption{Import Dialog im Aleksameter-Modus mit Kalibrierungsmanagement}
+\label{fig:import_aleksameter}
+\end{figure}
+
+Kernfunktionen:
+\begin{itemize}
+    \item \textbf{Kalibrierungsmanagement:} Verwaltung von Schwarz- und Weißreferenz-Kalibrierungen
+    \item \textbf{Referenzdaten-Austausch:} Intelligenter Swap bei falscher Aufnahmereihenfolge
+    \item \textbf{Datenvalidierung:} Automatische Aleksameter-Datenkonsistenz-Prüfung
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Aleksameter Kalibrierungssteuerung]
+def handle_calibration_swap(self):
+    """Tauscht Schwarz- und Weissreferenz-Kalibrierungen"""
+    if self.white_ref_data and self.black_ref_data:
+        temp = self.white_ref_data.copy()
+        self.white_ref_data = self.black_ref_data.copy()
+        self.black_ref_data = temp
+        self.update_calibration_display()
+        
+def swap_reference_data(self):
+    """Intelligenter Referenzdaten-Austausch mit Validierung"""
+    if not self.black_reference_path or not self.white_reference_path:
+        QMessageBox.warning(self, "Austausch nicht moeglich", 
+                           "Beide Referenzdateien muessen geladen sein.")
+        return
+    
+    # Pfade und Daten tauschen
+    self.black_reference_path, self.white_reference_path = \
+        self.white_reference_path, self.black_reference_path
+    self.black_reference_data, self.white_reference_data = \
+        self.white_reference_data, self.black_reference_data
+    
+    self.update_preview()
+    QMessageBox.information(self, "Austausch erfolgreich", 
+                           "Referenzdaten wurden getauscht.")
+\end{lstlisting}
+
+\subsubsection{Generic-Modus}
+Der Generic-Modus ist für externe Reflektanzdaten optimiert, wie in \ref{fig:import_generic} dargestellt:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/import_dialog_generic.png}
+\caption{Import Dialog im Generic-Modus mit automatischer Wellenlängen-Erkennung}
+\label{fig:import_generic}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{Automatische Wellenlängen-Erkennung:} Das System erkennt automatisch den Wellenlängenbereich der importierten Daten
+    \item \textbf{Schrittweiten-Analyse:} Automatische Bestimmung der spektralen Auflösung (1nm, 5nm, 10nm, etc.)
+    \item \textbf{Datenformat-Flexibilität:} 
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Automatische Wellenlängen-Erkennung im Generic-Modus]
+def analyze_wavelength_structure(self, spectrum_data):
+    """Analysiert Wellenlaengenstruktur automatisch"""
+    wavelengths = spectrum_data.iloc[:, 0].values
+    
+    # Schrittweite bestimmen
+    steps = np.diff(wavelengths)
+    step_size = np.median(steps)
+    
+    # Wellenlaengenbereich ermitteln  
+    wl_min, wl_max = wavelengths.min(), wavelengths.max()
+    
+    self.wavelength_info.setText(
+        f"Bereich: {wl_min}-{wl_max}nm, Schrittweite: {step_size}nm"
+    )
+    
+    return wl_min, wl_max, step_size
+\end{lstlisting}
+
+\subsubsection{Erweiterte Import-Funktionen}
+
+Für effiziente Datenverarbeitung unterstützt das System die gleichzeitige Auswahl und Verarbeitung mehrerer Messdateien. Die Batch-Verarbeitung inkludiert automatische Validierung jeder Datei, um sicherzustellen, dass nur kompatible und fehlerfreie Daten in die Analyse einbezogen werden.
+
+\subsubsection{Erweiterte Import-Features}
+
+**Batch-Verarbeitung mit automatischer Validierung:**
+\begin{lstlisting}[language=Python, caption=Intelligente Batch-Dateiverarbeitung]
+def select_measurements(self):
+    """Batch-Auswahl mit automatischer Validierung"""
+    file_paths, _ = QFileDialog.getOpenFileNames(
+        self, "Messdateien auswaelen", self.get_optimal_start_directory(),
+        "CSV Files (*.csv);;All Files (*.*)"
+    )
+    
+    if file_paths:
+        valid_files, failed_files = [ ], [ ]
+        
+        for fp in file_paths:
+            if self.validate_and_load_file(fp):
+                valid_files.append(fp)
+            else:
+                failed_files.append(os.path.basename(fp))
+        
+        self.measurement_files = valid_files
+        self.populate_file_list()
+    self.update_preview()
+        
+        if failed_files:
+            self.show_failed_files_warning(failed_files)
+\end{lstlisting}
+
+**Intelligente Vorschau mit Qualitätskontrolle:**
+\begin{lstlisting}[language=Python, caption=Erweiterte Datenvorschau]
+def update_preview(self):
+    """Aktualisiert Vorschau mit bis zu 3 Datensaetzen"""
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+    
+    preview_items = self.collect_preview_data()
+    
+    for name, data, color in preview_items[:3]:
+        if self.validate_preview_data(data):
+            ax.plot(data['wavelengths'], data['values'], 
+                   label=name, color=color, linewidth=1.5)
+    
+    self.configure_preview_plot(ax)
+    self.figure.tight_layout()
+    self.canvas.draw()
+\end{lstlisting}
+
+**Mehrstufige Verzeichnisverwaltung:**
+Das System implementiert eine intelligente Verzeichnisverwaltung mit Prioritäten: aktuelle Session → dateityp-spezifisch → allgemein. Dies reduziert Navigationsschritte und verbessert die Arbeitseffizienz.
+
+\begin{lstlisting}[language=Python, caption=Intelligente Verzeichnisverwaltung]
+def get_optimal_start_directory(self):
+    """Ermittelt optimales Startverzeichnis basierend auf Kontext"""
+    # Prioritaet: Session - Typ-spezifisch - Allgemein
+    if self.current_session_directory:
+        return self.current_session_directory
+    
+    type_specific_dirs = {
+        'black_reference': self.black_reference_directory,
+        'white_reference': self.white_reference_directory,
+        'measurement': self.measurement_directory
+    }
+    
+    return (type_specific_dirs.get(self.current_file_type) or 
+            self.get_import_directory())
+\end{lstlisting}
+
+\subsubsection{Erweiterte Vorschau-Funktionen}
+
+Die Datenvorschau ist ein kritischer Aspekt der Qualitätskontrolle bei spektralen Messungen. Das System bietet eine intelligente Vorschaufunktion, die automatisch die wichtigsten Datensätze (Referenzen und erste Messung) visualisiert, um dem Benutzer eine sofortige Qualitätsbeurteilung zu ermöglichen.
+
+Die Vorschau begrenzt sich auf maximal drei Kurven, um die Übersichtlichkeit zu gewährleisten, und verwendet ein farbkodiertes Schema zur einfachen Unterscheidung:
+
+\begin{lstlisting}[language=Python, caption=Intelligente Datenvorschau]
+def update_preview(self):
+    """Aktualisiert die Datenvorschau mit bis zu 3 Dateien"""
+    self.figure.clear()
+    ax = self.figure.add_subplot(111)
+    
+    preview_files = [ ]
+    colors = ['blue', 'red', 'green']
+    
+    # Sammle Dateien fuer Vorschau (max. 3)
+    if self.black_reference_data:
+        preview_files.append(('Schwarzreferenz', self.black_reference_data, 'black'))
+    if self.white_reference_data:
+        preview_files.append(('Weissenreferenz', self.white_reference_data, 'gray'))
+    
+    # Fuege erste Messdatei hinzu wenn verfuegbar
+    if self.measurement_files:
+        first_measurement = self.load_data_file(self.measurement_files[0])
+        if first_measurement:
+            filename = os.path.basename(self.measurement_files[0])
+            preview_files.append((filename, first_measurement, colors[0]))
+    
+    # Plotte Daten
+    for name, data, color in preview_files[:3]:
+        if 'wavelengths' in data and 'values' in data:
+            ax.plot(data['wavelengths'], data['values'], 
+                   label=name, color=color, linewidth=1.5)
+    
+    ax.set_xlabel('Wellenlaenge [nm]')
+    ax.set_ylabel('Intensitaet')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    self.figure.tight_layout()
+    self.canvas.draw()
+\end{lstlisting}
+
+\subsubsection{Intelligente Verzeichnis-Verwaltung}
+
+Um den Arbeitsfluss zu optimieren, implementiert das System eine mehrschichtige Verzeichnisverwaltung, die sich an die Arbeitsgewohnheiten der Benutzer anpasst. Das System merkt sich nicht nur das zuletzt verwendete Verzeichnis, sondern unterscheidet zwischen verschiedenen Dateitypen und Sessions.
+
+Diese intelligente Verwaltung reduziert die Anzahl der erforderlichen Navigationsschritte erheblich und verbessert die Effizienz bei der Datenerfassung:
+
+\begin{lstlisting}[language=Python, caption=Mehrstufige Verzeichnis-Verwaltung]
+def get_import_directory_for_type(self, file_type):
+    """Ermittelt optimales Startverzeichnis fuer verschiedene Dateitypen"""
+    # Prioritaet: 1. Aktuelle Session, 2. Typ-spezifisch, 3. Allgemein
+    if self.current_session_directory:
+        return self.current_session_directory
+    
+    type_directories = {
+        'black_reference': self.black_reference_directory,
+        'white_reference': self.white_reference_directory,
+        'measurement': self.measurement_directory
+    }
+    
+    specific_dir = type_directories.get(file_type)
+    if specific_dir and os.path.exists(specific_dir):
+        return specific_dir
+    
+    return self.get_import_directory()
+
+def save_directory_for_type(self, file_type, directory):
+    """Speichert Verzeichnis fuer spezifischen Dateityp"""
+    # Aktualisiere Session-Verzeichnis
+    self.current_session_directory = directory
+    
+    # Speichere typ-spezifisches Verzeichnis
+    directory_mapping = {
+        'black_reference': 'black_reference_directory',
+        'white_reference': 'white_reference_directory', 
+        'measurement': 'measurement_directory'
+    }
+    
+    attr_name = directory_mapping.get(file_type)
+    if attr_name:
+        setattr(self, attr_name, directory)
+        self.save_directory(attr_name, directory)
+\end{lstlisting}
+
+Der Export Dialog bietet wissenschaftliche Datenausgabe in verschiedenen Formaten mit erweiterten Metadaten-Funktionen:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.8\textwidth]{figures/export_dialog.png}
+\caption{Export Dialog mit Auswahlmöglichkeiten für Farbwerte und Reflektionsgrad}
+\label{fig:export_dialog}
+\end{figure}
+
+Wie in \ref{fig:export_dialog} dargestellt, ermöglicht der Dialog die selektive Auswahl der zu exportierenden Datentypen. Benutzer können individuell wählen zwischen:
+
+\begin{itemize}
+    \item \textbf{Export Farbwerte:} CIE-Koordinaten, sRGB-Werte und berechnete Farbmetrische Daten
+    \item \textbf{Export Reflektionsgrad:} Spektrale Reflektanzdaten über den gesamten Wellenlängenbereich
+    \item \textbf{Kombinierter Export:} Beide Datentypen in strukturierter Form
+\end{itemize}
+
+\subsubsection{Format-spezifische Exportfunktionen}
+
+Das System unterstützt vier Hauptexportformate für verschiedene Anwendungsszenarien:
+
+\begin{itemize}
+    \item \textbf{CSV:} Tabulatorgetrennte Daten für universelle Kompatibilität
+    \item \textbf{Excel (XLSX):} Mehrsheet-Struktur mit integrierten Metadaten
+    \item \textbf{TXT:} Legacy-kompatible Textdateien
+    \item \textbf{JSON:} Strukturierte Daten mit vollständigen Metadaten
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Excel-Export mit Metadaten-Integration]
+def export_to_excel(self, filename, export_rho=True, export_color=True):
+    """Exportiert Daten in strukturiertes Excel-Format"""
+    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        
+        if export_rho:
+            # Spektraldaten-Sheet
+            rho_data = self.prepare_reflectance_data()
+            rho_data.to_excel(writer, sheet_name='Spektraldaten', index=False)
+        
+        if export_color:
+            # Farbmetrische Daten-Sheet
+            color_data = self.prepare_colorimetric_data()
+            color_data.to_excel(writer, sheet_name='Farbdaten', index=False)
+        
+        # Metadaten-Sheet
+        metadata = self.generate_metadata()
+        metadata.to_excel(writer, sheet_name='Metadaten', index=False)
+\end{lstlisting}
+
+\textbf{JSON-Datenstruktur mit vollständigen Metadaten:}
+\begin{lstlisting}[language=Python, caption=JSON-Export Struktur]
+{
+    "metadata": {
+        "measurement_date": "2024-01-15",
+        "device": "Aleksameter",
+        "illuminant": "D65",
+        "observer": "CIE 1931"
+    },
+    "Wavelength [nm]": [380, 381, 382, ...],
+    "Spectral_Data": {
+        "sample_001": [0.045, 0.047, ...],
+        "sample_002": [0.067, 0.069, ...]
+    },
+    "colorimetric_data": {
+        "sample_001": {"x": 0.3127, "y": 0.3290, "rgb": [0.95, 0.94, 0.93]}
+  }
+}
+\end{lstlisting}
+
+\subsection{Plot Dialog - Wissenschaftliche Visualisierung}
+
+Der Plot Dialog ermöglicht die Erstellung publikationsreifer wissenschaftlicher Grafiken:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.8\textwidth]{figures/plot_dialog.png}
+\caption{Plot Dialog mit DPI-Kontrolle und Format-Auswahl}
+\label{fig:plot_dialog}
+\end{figure}
+
+Wie in \ref{fig:plot_dialog} dargestellt, bietet der Dialog umfassende Exportoptionen für wissenschaftliche Publikationen:
+
+
+\begin{lstlisting}[language=Python, caption=Multi-DPI Plot-Export]
+def export_plot(self, filename, dpi_selection):
+    """Exportiert Plots in verschiedenen Aufloesungen"""
+    dpi_options = {'Niedrig (150 DPI)': 150, 'Standard (300 DPI)': 300, 'Hoch (600 DPI)': 600}
+    selected_dpi = dpi_options[dpi_selection]
+    
+    fig = self.create_publication_plot()
+    fig.savefig(filename, dpi=selected_dpi, bbox_inches='tight', 
+                facecolor='white', edgecolor='none')
+\end{lstlisting}
+
+Das System unterstützt multiple Ausgabeformate (PNG, JPEG, TIFF, PDF) mit drei Qualitätsstufen: 150 DPI für Bildschirmdarstellung, 300 DPI für wissenschaftliche Publikationen und 600 DPI für Druckqualität.
+
+Darstellungsbeispiele wie in \ref{fig:plot_example1} und \ref{fig:plot_example2}:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/plot_example_reflectance.png}
+\caption{Reflektanzspektren-Darstellung mit publikationsreifer Formatierung}
+\label{fig:plot_example1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/plot_example_colorspace.png}
+\caption{Farbraum-Visualisierung mit CIE-Diagramm}
+\label{fig:plot_example2}
+\end{figure}
+
+\subsection{Settings Dialog - Erweiterte Systemkonfiguration}
+
+Der Settings Dialog bietet eine umfassende Konfigurationsoberfläche mit drei spezialisierten Registerkarten, wie in \ref{fig:settings_tab1}, \ref{fig:settings_tab2} und \ref{fig:settings_tab3} dargestellt.
+
+\subsubsection{Allgemeine Einstellungen (Tab 1)}
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/settings_tab_general.png}
+\caption{Settings Dialog - Allgemeine Einstellungen}
+\label{fig:settings_tab1}
+\end{figure}
+
+Konfiguration grundlegender Systemparameter einschließlich Sprache, Theme und automatische Speicherung.
+
+\subsubsection{Farbmetrische Parameter (Tab 2)}
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/settings_tab_colorimetric.png}
+\caption{Settings Dialog - Farbmetrische Einstellungen}
+\label{fig:settings_tab2}
+\end{figure}
+
+Verwaltung wissenschaftlicher Parameter für farbmetrische Berechnungen mit bidirektionaler Menü-Integration:
+
+\begin{lstlisting}[language=Python, caption=Farbmetrische Parameter-Verwaltung]
+def setup_colorimetric_settings(self):
+    """Konfiguriert farbmetrische Standardparameter"""
+    # Illuminant und Observer Auswahl
+    self.illuminant_combo.addItems(['D50', 'D55', 'D65', 'A', 'F2', 'F11'])
+    self.observer_combo.addItems(['CIE 1931'])
+    
+    # Bidirektionale Menue-Synchronisation
+    self.illuminant_combo.currentTextChanged.connect(self.sync_with_main_menu)
+\end{lstlisting}
+
+\textbf{Wichtige Funktionalität:} Die Gamut- und Illuminant-Einstellungen sind bidirektional mit dem Edit-Menü verknüpft. Änderungen werden sofort in beiden Interfaces reflektiert.
+
+\subsubsection{Export-Konfiguration (Tab 3)}
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/settings_tab_export.png}
+\caption{Settings Dialog - Export-Einstellungen}
+\label{fig:settings_tab3}
+\end{figure}
+
+Die Export-Konfiguration ermöglicht die Anpassung von Datenexport-Parametern für verschiedene Anwendungsszenarien:
+
+\begin{lstlisting}[language=Python, caption=Export-Einstellungen Verwaltung]
+def setup_export_settings(self):
+    """Konfiguriert Export-Parameter"""
+    # Separator-Auswahl (Point/Comma für Dezimaltrennzeichen)
+    self.ui.comboBox_Export_Separator.addItems(['Point', 'Comma'])
+    
+    # Copy Header Einstellung (Yes/No)
+    self.ui.comboBox_Copy_Header.addItems(['Yes', 'No'])
+    
+    # Standard-Einstellungen laden
+    self.load_export_defaults()
+
+def load_export_defaults(self):
+    """Lädt Export-Standardeinstellungen"""
+    export_defaults = {
+        'separator': 'Point',  # Dezimaltrennzeichen
+        'copy_header': 'Yes'  # Spaltenheader in Zwischenablage
+    }
+    return export_defaults
+\end{lstlisting}
+
+Die Export-Einstellungen umfassen:
+
+\begin{itemize}
+    \item \textbf{Dezimaltrennzeichen:} Point (.) oder Comma (,) für verschiedene Regionen
+    \item \textbf{Header-Kopierfunktion:} Ein-/Ausschalten der Spaltenheader beim Kopieren in die Zwischenablage
+\end{itemize}
+
+\subsubsection{Tab-spezifische Default-Wiederherstellung}
+
+Jede Registerkarte verfügt über individuelle Standard-Wiederherstellungsoptionen mit granularer Kontrolle:
+
+\begin{lstlisting}[language=Python, caption=Tab-spezifische Default-Wiederherstellung]
+def restore_tab_defaults(self, tab_index):
+    """Stellt Standard-Einstellungen fuer spezifische Registerkarte wieder her"""
+    defaults = self.load_default_settings()
+    
+    tab_functions = {
+        0: lambda: self.apply_general_defaults(defaults['general']),
+        1: lambda: self.apply_colorimetric_defaults(defaults['colorimetric']),
+        2: lambda: self.apply_display_defaults(defaults['display'])
+    }
+    
+    if tab_index in tab_functions:
+        tab_functions[tab_index]()
+\end{lstlisting}
+
+\subsection{About Dialog - Systeminformationen}
+
+Der About Dialog stellt eine Standardinformationsübersicht über die Anwendung bereit:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=1.0\textwidth]{figures/about_dialog.png}
+\caption{About Dialog mit Anwendungs- und Systeminformationen}
+\label{fig:about_dialog}
+\end{figure}
+
+Wie in \ref{fig:about_dialog} dargestellt, zeigt der Dialog umfassende Systeminformationen:
+
+\begin{lstlisting}[language=Python, caption=About Dialog Implementation]
+def create_about_dialog(self):
+    """Erstellt About Dialog mit Systeminformationen"""
+    about_text = f"""
+    <h2>Aleksameter Software</h2>
+    <p>Version: {self.version}</p>
+    <p>Python: {sys.version}</p>
+    <p>Qt Version: {QtCore.qVersion()}</p>
+    """
+    QMessageBox.about(self, "About Aleksameter", about_text)
+\end{lstlisting}
+
+\subsection{Datenviewer-Dialoge}
+
+Das System bietet spezialisierte Dialoge für detaillierte Datenansichten. Diese Dialoge werden über die entsprechenden Buttons im Hauptfenster geöffnet und ermöglichen erweiterte Datenanalyse und -visualisierung:
+
+\subsubsection{Reflectance Data Dialog}
+
+Der Reflectance Data Dialog wird durch Klicken auf den "Show Reflections Data"-Button im Hauptfenster geöffnet:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.9\textwidth]{figures/reflectance_data_dialog.png}
+\caption{Reflectance Data Dialog mit tabellarischer Spektraldaten-Darstellung}
+\label{fig:reflectance_data_dialog}
+\end{figure}
+
+Wie in \ref{fig:reflectance_data_dialog} dargestellt, bietet der Dialog eine umfassende tabellarische Ansicht aller spektralen Reflektanzdaten:
+
+\begin{lstlisting}[language=Python, caption=Reflektanzdaten-Dialog]
+def show_reflectance_data(self):
+    """Zeigt Reflektanzdaten in separatem Dialog"""
+    if not self.data['reflectance']:
+        QMessageBox.warning(self, "Warnung", "Keine Reflektanzdaten verfuegbar.")
+        return
+    
+    # Daten sammeln und Dialog erstellen/aktualisieren
+    wavelengths, datasets = self.collect_reflectance_datasets()
+    
+    if self.reflectance_dialog is None or not self.reflectance_dialog.isVisible():
+        self.reflectance_dialog = ReflectanceDataDialog(wavelengths, datasets, self)
+        self.reflectance_dialog.show()
+    else:
+        self.reflectance_dialog.update_data(wavelengths, datasets)
+\end{lstlisting}
+
+\subsubsection{CIE Data Dialog}
+
+Der CIE Data Dialog wird durch Klicken auf den "Show CIE Diagram" Button im Hauptfenster aktiviert:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.8\textwidth]{figures/cie_data_dialog.png}
+\caption{CIE Data Dialog mit erweitertem Chromatizitätsdiagramm}
+\label{fig:cie_data_dialog}
+\end{figure}
+
+Wie in \ref{fig:cie_data_dialog} zu sehen, präsentiert der Dialog eine vergrößerte und detaillierte Ansicht des CIE-Chromatizitätsdiagramms:
+
+\begin{lstlisting}[language=Python, caption=CIE-Dialog für erweiterte Visualisierung]
+def show_cie_data(self):
+    """Zeigt vergrößerte CIE-Chromatizitätsdiagramm-Ansicht"""
+    if self.cie_dialog is None or not self.cie_dialog.isVisible():
+        self.cie_dialog = QDialog(self)
+        self.cie_dialog.setWindowTitle("CIE Chromaticity Diagram")
+        self.cie_dialog.resize(900, 900)
+        
+        # Layout und Canvas konfigurieren
+        layout = QVBoxLayout(self.cie_dialog)
+        self.cie_expanded_figure = Figure(figsize=(10, 10), dpi=100)
+        self.cie_expanded_canvas = FigureCanvas(self.cie_expanded_figure)
+        layout.addWidget(self.cie_expanded_canvas)
+        
+        self.update_expanded_cie_plot()
+        self.cie_dialog.show()
+    else:
+        self.update_expanded_cie_plot()
+        self.cie_dialog.show()
+        self.cie_dialog.raise_()
+\end{lstlisting}
+
+\subsection{Persistente Zustandsspeicherung}
+
+Das System implementiert intelligente Speicherung und Wiederherstellung von Dialog-Zuständen zwischen Anwendungssitzungen:
+
+\subsubsection{Dialog-Zustand Persistenz}
+
+\begin{lstlisting}[language=Python, caption=Dialog-Zustand Management]
+def save_dialog_state(self):
+    """Speichert aktuellen Dialog-Zustand"""
+    settings = QSettings()
+    settings.beginGroup(f"{self.__class__.__name__}")
+    
+    # Dialog-spezifische Einstellungen speichern
+    settings.setValue('selected_format', self.format_combo.currentText())
+    settings.setValue('export_directory', self.directory_line.text())
+    settings.setValue('export_options', self.get_current_options())
+    
+    settings.endGroup()
+
+def restore_dialog_state(self):
+    """Stellt gespeicherten Dialog-Zustand wieder her"""
+    settings = QSettings()
+    settings.beginGroup(f"{self.__class__.__name__}")
+    
+    # Wiederherstellung mit Fallback-Werten
+    self.format_combo.setCurrentText(settings.value('selected_format', 'CSV'))
+    self.directory_line.setText(settings.value('export_directory', ''))
+    self.apply_saved_options(settings.value('export_options', {}))
+    
+    settings.endGroup()
+\end{lstlisting}
+
+\subsubsection{Anwendungsweite Persistenz}
+
+\begin{lstlisting}[language=Python, caption=Anwendungszustand-Persistenz]
+def save_application_state(self):
+    """Speichert kompletten Anwendungszustand"""
+    settings = QSettings()
+    
+    # Fenster-Geometrie und wissenschaftliche Parameter
+    settings.setValue('geometry', self.saveGeometry())
+    settings.setValue('current_illuminant', self.current_illuminant)
+    settings.setValue('current_observer', self.current_observer)
+    settings.setValue('font_scale', self.current_font_scale)
+\end{lstlisting}
+
+Diese Persistenz gewährleistet eine konsistente Benutzererfahrung und eliminiert repetitive Konfigurationsaufgaben zwischen Arbeitssitzungen.
+
+\section{Datenmanagement und -validierung}
+
+\subsection{Intelligente Datenstruktur-Verwaltung}
+
+Die Verwaltung komplexer spektraler Daten erfordert eine durchdachte Datenstruktur, die sowohl Effizienz als auch Flexibilität gewährleistet. Das System implementiert eine hierarchische Datenorganisation, die verschiedene Datentypen und -stadien der Verarbeitung berücksichtigt:
+
+\begin{lstlisting}[language=Python, caption=Zentrale Datenstruktur-Initialisierung]
+def reset_data(self):
+    """Initialisiert die zentrale Datenstruktur"""
+    self.data = {
+        'results': [ ],                    # Berechnete Farbergebnisse
+        'reflectance': {},               # Reflektanzdaten pro Datei
+        'raw_measurements': {},          # Original-Messdaten fuer Neuberechnung
+        'file_names': [ ],               # Liste der Dateinamen
+        'black_reference': None,        # Schwarzreferenz-Daten
+        'white_reference': None,        # Weissreferenz-Daten
+        'original_wavelengths': None,   # Original-Wellenlaengen
+        'wavelengths': None            # Standard-Wellenlaengen (1nm)
+    }
+\end{lstlisting}
+
+Diese Struktur ermöglicht es, sowohl Original-Messdaten für Neuberechnungen als auch prozessierte Ergebnisse für die Darstellung effizient zu verwalten.
+
+\subsection{Datenreset und Neuberechnung}
+
+Das System bietet umfassende Funktionen für Datenreset und intelligente Neuberechnung:
+
+\begin{lstlisting}[language=Python, caption=Sichere Datenreset-Funktion]
+def clear_data(self):
+    """Loescht alle Daten mit Sicherheitsabfrage"""
+    reply = QMessageBox.question(
+        self, "Bestaetigung erforderlich",
+        "Sind Sie sicher, dass Sie alle Daten loeschen moechten?",
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.No
+    )
+
+    if reply == QMessageBox.StandardButton.Yes:
+        self.reset_data()
+        self.update_all_displays()
+        self.close_open_dialogs()
+        self.update_menu_state(False)
+        
+        QMessageBox.information(self, "Erfolgreich", 
+                               "Alle Daten wurden erfolgreich geloescht.")
+\end{lstlisting}
+
+\subsection{Intelligente Neuberechnungs-Engine}
+
+Bei Parameter-Änderungen wird eine selektive Neuberechnung durchgeführt:
+
+\begin{lstlisting}[language=Python, caption=Parameter-abhängige Neuberechnung]
+def recalculate_results(self):
+    """Berechnet Ergebnisse bei Parameter-Aenderungen neu"""
+    if not self.data['raw_measurements']:
+        return
+
+    self.data['results'] = [ ]
+    
+    # Kalibrierungsmodus wiederherstellen falls vorhanden
+    self.restore_calibration_mode()
+    
+    # Alle Datensaetze neu berechnen
+    for file_name, raw_data in self.data['raw_measurements'].items():
+        result = self.color_calculator.process_measurement(
+            raw_data['values'], raw_data['wavelengths']
+        )
+        
+        self.data['reflectance'][file_name] = result
+        self.data['results'].append(self.create_result_entry(file_name, result))
+    
+    # Interface komplett aktualisieren
+    self.update_all_displays()
+\end{lstlisting}
+
+\section{Menüsystem und Navigation}
+
+\subsection{Umfassendes Menüsystem}
+
+Das Hauptfenster implementiert ein vollständiges Menüsystem mit intelligenter Zustandsverwaltung:
+
+\begin{figure}[H]
+    \centering
+\includegraphics[width=0.8\textwidth]{figures/menu_system_complete.png}
+\caption{Vollständiges Menüsystem: File-, Edit- und Help-Menü mit allen verfügbaren Funktionen}
+\label{fig:menu_system_complete}
+\end{figure}
+
+Wie in \ref{fig:menu_system_complete} dargestellt, umfasst das Menüsystem drei Hauptbereiche mit spezialisierten Funktionen: Das File-Menü für Datenmanagement, das Edit-Menü für Parameter-Kontrolle und das Help-Menü für Benutzerunterstützung.
+
+\subsubsection{File-Menü Implementation}
+
+Das File-Menü bildet den zentralen Einstiegspunkt für alle datenverarbeitenden Funktionen der Anwendung. Die Implementierung folgt Standard-GUI-Konventionen und bietet konsistente Tastenkombinationen für alle Hauptfunktionen.
+
+Besondere Aufmerksamkeit wurde der plattformspezifischen Integration gewidmet, insbesondere für macOS, wo Menüelemente spezielle Behandlung erfordern:
+
+\begin{lstlisting}[language=Python, caption=File-Menü Konfiguration]
+def setup_file_menu(self):
+    """Konfiguriert das File-Meneu mit allen Funktionen"""
+    # Basis-Aktionen
+    self.ui.actionImport.triggered.connect(self.open_import_dialog)
+    self.ui.actionExport.triggered.connect(self.open_export_dialog)
+    self.ui.actionPlot.triggered.connect(self.open_plot_dialog)
+    self.ui.actionSettings.triggered.connect(self.open_settings_dialog)
+    
+    # macOS-spezifische Meneu-Rolle fuer Settings
+    self.ui.actionSettings.setMenuRole(QAction.MenuRole.NoRole)
+    
+    # Dynamische Menue-Zustandsverwaltung
+    self.update_menu_state(False)  # Initial deaktiviert
+\end{lstlisting}
+
+\subsubsection{Edit-Menü mit dynamischen Untermenüs}
+
+Das Edit-Menü erweitert die Standardfunktionen um wissenschaftsspezifische Parameter-Einstellungen. Die dynamischen Untermenüs für Illuminant- und Gamut-Auswahl ermöglichen es Benutzern, wichtige Berechnungsparameter direkt über die Menüleiste zu ändern, ohne den Settings-Dialog öffnen zu müssen.
+
+Diese Integration bietet eine effiziente Alternative für häufig geänderte Parameter und stellt sicher, dass die aktuellen Einstellungen immer sichtbar sind:
+
+\begin{lstlisting}[language=Python, caption=Dynamische Edit-Menü Erstellung]
+def create_dynamic_edit_menu(self):
+    """Erstellt dynamische Untermenues fuer Edit-Menue"""
+    # Illuminant-Untermenue
+    illuminant_menu = QMenu("Illuminant", self)
+    self.ui.menu_edit.addMenu(illuminant_menu)
+    
+    self.illuminant_actions = {}
+    available_illuminants = ['D65', 'D50', 'A', 'E']
+    
+    for illuminant in available_illuminants:
+        action = QAction(illuminant, self)
+        action.setCheckable(True)
+        action.setData(illuminant)
+        
+        # Aktueller Illuminant markieren
+        if illuminant == self.settings['general']['illuminant']:
+            action.setChecked(True)
+        
+        action.triggered.connect(self.change_illuminant)
+        illuminant_menu.addAction(action)
+        self.illuminant_actions[illuminant] = action
+    
+    # Gamut-Untermenue
+    gamut_menu = QMenu("Gamut", self)
+    self.ui.menu_edit.addMenu(gamut_menu)
+    
+    self.gamut_actions = {}
+    available_gamuts = [
+        'None', 'sRGB', 'Adobe RGB', 
+        'HTC VIVE Pro Eye', 'Meta Oculus Quest 1', 
+        'Meta Oculus Quest 2', 'Meta Oculus Rift'
+    ]
+    
+    for gamut in available_gamuts:
+        action = QAction(gamut, self)
+        action.setCheckable(True)
+        action.setData(gamut)
+        
+        if gamut == self.settings['general']['gamut']:
+            action.setChecked(True)
+        
+        action.triggered.connect(self.change_gamut)
+        gamut_menu.addAction(action)
+        self.gamut_actions[gamut] = action
+\end{lstlisting}
+
+\subsubsection{Intelligente Menü-Zustandsverwaltung}
+
+Ein wesentlicher Aspekt der Benutzerfreundlichkeit ist die kontextuelle Aktivierung von Menüfunktionen. Das System implementiert eine intelligente Zustandsverwaltung, die Menüelemente nur dann aktiviert, wenn die entsprechenden Aktionen sinnvoll ausführbar sind.
+
+Diese Zustandsverwaltung verhindert Benutzerfehler und bietet visuelle Rückmeldung über den aktuellen Anwendungszustand. Beispielsweise sind Export- und Plot-Funktionen nur verfügbar, wenn tatsächlich verarbeitete Daten vorhanden sind:
+
+\begin{lstlisting}[language=Python, caption=Dynamische Menü-Aktivierung]
+def update_menu_state(self, has_data):
+    """Aktualisiert Menue-Zustand basierend auf Datenverfuegbarkeit"""
+    if hasattr(self, 'ui'):
+        # Export und Plot nur bei vorhandenen Daten aktivieren
+        self.ui.actionExport.setEnabled(has_data)
+        self.ui.actionPlot.setEnabled(has_data)
+        
+        # Copy-Funktionen entsprechend aktivieren
+        self.ui.actionCopy_all_data.setEnabled(has_data)
+        
+        # Clear-Funktion nur bei Daten aktivieren
+        self.ui.actionClear.setEnabled(has_data)
+
+def change_illuminant(self):
+    """Behandelt Illuminant-Aenderungen aus dem Menue"""
+    action = self.sender()
+    if not action.isChecked():
+        action.setChecked(True)  # Verhindere Deaktivierung
+        return
+    
+    # Anderen Illuminant-Aktionen deaktivieren
+    illuminant = action.data()
+    for name, act in self.illuminant_actions.items():
+        if name != illuminant:
+            act.setChecked(False)
+    
+    # Einstellungen aktualisieren und Neuberechnung ausloesen
+    self.settings['general']['illuminant'] = illuminant
+    self.color_calculator.set_illuminant(illuminant)
+    
+    if self.data['raw_measurements']:
+        self.recalculate_results()
+\end{lstlisting}
+
+\subsection{Help-Menü und Dokumentationssystem}
+
+\subsubsection{User Guide Integration}
+
+Für wissenschaftliche Software ist eine umfassende und leicht zugängliche Dokumentation unerlässlich. Das System integriert ein HTML-basiertes User Guide System, das sowohl in der Entwicklungsumgebung als auch in der deployed Anwendung funktioniert.
+
+Die Integration berücksichtigt verschiedene Deployment-Szenarien, einschließlich PyInstaller-basierter Pakete, und gewährleistet plattformübergreifende Kompatibilität:
+
+\begin{lstlisting}[language=Python, caption=User Guide System Implementation]
+def open_manual(self):
+    """Oeffnet HTML User Guide im Standard-Browser"""
+    guide_path = self.get_resource_path("Aleksameter_User_Guide.html")
+    
+    if os.path.exists(guide_path):
+        import webbrowser
+        try:
+            # Oeffne in Standard-Browser
+            webbrowser.open(f"file://{guide_path}")
+            printf("User Guide geoeffnet: {guide_path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Fehler", 
+                f"Konnte User Guide nicht oeffnen: {str(e)}")
+    else:
+        QMessageBox.warning(self, "User Guide nicht gefunden", 
+            f"User Guide Datei nicht gefunden:\n{guide_path}")
+
+def get_resource_path(self, relative_path):
+    """
+    Ermittelt absoluten Pfad fuer Ressourcendateien
+    Funktioniert sowohl in Entwicklung als auch in PyInstaller-Umgebung
+    """
+    try:
+        # PyInstaller erstellt temporaeren Ordner mit _MEIPASS
+        base_path = getattr(sys, '_MEIPASS', 
+                           os.path.abspath(os.path.dirname(__file__)))
+        return os.path.join(base_path, relative_path)
+    except Exception as e:
+        print(f"Fehler beim Ermitteln des Ressourcenpfads: {str(e)}")
+        return relative_path
+\end{lstlisting}
+
+\section{Konfigurationssystem}
+
+\subsection{JSON-basierte Einstellungsverwaltung}
+
+Das System implementiert ein dreistufiges JSON-basiertes Konfigurationssystem für flexible und wartbare Einstellungsverwaltung:
+
+\subsubsection{Standard-Konfiguration (default\_settings.json)}
+Die Basis-Konfigurationsdatei definiert Systemstandards für wissenschaftliche Parameter:
+
+\begin{lstlisting}[language=Python, caption=Standard-Konfiguration Struktur]
+# default_settings.json Struktur
+{
+    "colorimetric": {
+        "default_illuminant": "D65",
+        "default_observer": "CIE 1931 2",
+        "gamut_warning": true,
+        "color_difference_method": "CIE2000"
+    },
+    "measurement": {
+        "wavelength_range": [380, 780],
+        "wavelength_step": 1,
+        "measurement_geometry": "45/0"
+    },
+    "export": {
+        "default_format": "CSV",
+        "decimal_places": 4,
+        "include_metadata": true
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Benutzer-Konfiguration (app\_settings.json)}
+Speichert benutzerspezifische Anpassungen mit Normalbereich-Farbwerten (0-1):
+
+\begin{lstlisting}[language=Python, caption=Benutzer-Konfiguration Management]
+def load_user_settings(self):
+    """Laedt benutzerspezifische Einstellungen"""
+    try:
+        with open('app_settings.json', 'r') as f:
+            user_settings = json.load(f)
+            
+        # Farbbereich-Validierung (0-1)
+        if 'color_range' in user_settings:
+            self.validate_color_range(user_settings['color_range'])
+            
+        return user_settings
+    except FileNotFoundError:
+        return self.load_default_settings()
+\end{lstlisting}
+
+\subsubsection{Alternative Farbbereich-Konfiguration (app\_settings\_0\_255.json)}
+Bereitstellung einer alternativen Konfiguration für 8-Bit Farbwerte (0-255):
+
+\begin{lstlisting}[language=Python, caption=Farbbereich-spezifische Konfiguration]
+def apply_color_range_settings(self, range_type):
+    """Wendet farbbereich-spezifische Einstellungen an"""
+    if range_type == "0-255":
+        settings_file = "app_settings_0_255.json"
+        self.color_scale_factor = 255
+    else:
+        settings_file = "app_settings.json" 
+        self.color_scale_factor = 1
+        
+    with open(settings_file, 'r') as f:
+        self.color_settings = json.load(f)
+\end{lstlisting}
+
+\subsection{Font-Konfigurationssystem}
+
+Das spezialisierte Font-Managementsystem verwendet eine dedizierte Konfigurationsdatei für typographische Einstellungen:
+
+\subsubsection{Font-Einstellungen (font\_settings.json)}
+\begin{lstlisting}[language=Python, caption=Font-Konfiguration Struktur]
+# font_settings.json Struktur  
+{
+    "base_fonts": {
+        "main_font": "Arial",
+        "mono_font": "Courier New",
+        "math_font": "Times New Roman"
+    },
+    "size_scales": {
+        "Klein": {
+            "scale_factor": 0.8,
+            "line_height": 1.2
+        },
+        "Mittel": {
+            "scale_factor": 1.0,
+            "line_height": 1.4
+        },
+        "Gross": {
+            "scale_factor": 1.2,
+            "line_height": 1.6
+        }
+    },
+    "component_fonts": {
+        "menu_font_scale": 1.0,
+        "dialog_font_scale": 0.95,
+        "table_font_scale": 0.9
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Dynamische Font-Anwendung}
+Das System ermöglicht die Echtzeitanwendung von Font-Änderungen ohne Neustart:
+
+\begin{lstlisting}[language=Python, caption=Dynamische Font-Skalierung]
+def apply_font_configuration(self, size_category):
+    """Wendet Font-Konfiguration systemweit an"""
+    font_config = self.load_font_settings()
+    scale_info = font_config['size_scales'][size_category]
+    
+    # Basis-Font berechnen
+    base_font = QFont(font_config['base_fonts']['main_font'])
+    base_size = base_font.pointSize() * scale_info['scale_factor']
+    
+    # Komponenten-spezifische Anwendung
+    self.apply_fonts_to_components(base_font, base_size, font_config)
+    
+def apply_fonts_to_components(self, base_font, base_size, config):
+    """Wendet Fonts auf verschiedene UI-Komponenten an"""
+    # Hauptfenster
+    main_font = QFont(base_font)
+    main_font.setPointSize(int(base_size))
+    self.setFont(main_font)
+    
+    # Tabellen
+    table_font = QFont(base_font)
+    table_font.setPointSize(int(base_size * config['component_fonts']['table_font_scale']))
+    self.color_table.setFont(table_font)
+    
+    # Dialoge
+    dialog_font = QFont(base_font)
+    dialog_font.setPointSize(int(base_size * config['component_fonts']['dialog_font_scale']))
+    self.apply_dialog_fonts(dialog_font)
+\end{lstlisting}
+
+\subsection{Plattformübergreifende Einstellungsverwaltung}
+
+Wissenschaftliche Software muss oft in heterogenen IT-Umgebungen mit verschiedenen Betriebssystemen eingesetzt werden. Das System implementiert daher eine plattformspezifische Einstellungsverwaltung, die den Konventionen des jeweiligen Betriebssystems folgt und dabei die Portabilität der Einstellungen gewährleistet.
+
+Die Implementierung berücksichtigt die unterschiedlichen Verzeichnisstrukturen und Sicherheitsrichtlinien der verschiedenen Plattformen:
+
+\begin{lstlisting}[language=Python, caption=Plattformspezifische Pfad-Verwaltung]
+def get_settings_file_path(self):
+    """Ermittelt plattformspezifischen Pfad fuer Einstellungsdatei"""
+    if sys.platform == 'darwin':  # macOS
+        user_data_dir = os.path.join(
+            os.path.expanduser('~'), 
+            'Library', 'Application Support', 'Aleksameter'
+        )
+    elif sys.platform == 'win32':  # Windows
+        user_data_dir = os.path.join(
+            os.environ.get('APPDATA', os.path.expanduser('~')), 
+            'Aleksameter'
+        )
+    else:  # Linux und andere Plattformen
+        user_data_dir = os.path.join(
+            os.path.expanduser('~'), 
+            '.aleksameter'
+        )
+    
+    # Verzeichnis erstellen falls nicht vorhanden
+    if not os.path.exists(user_data_dir):
+        os.makedirs(user_data_dir)
+    
+    settings_file = os.path.join(user_data_dir, "app_settings.json")
+    return settings_file
+\end{lstlisting}
+
+\section{Deployment und Wartung}
+
+\subsection{Cross-Platform Deployment}
+
+Die Software unterstützt plattformübergreifende Bereitstellung mit automatisierter Paketierung:
+
+\begin{lstlisting}[language=Python, caption=Deployment-Konfiguration]
+def create_deployment_package():
+    """Erstellt plattformspezifische Deployment-Pakete"""
+    import PyInstaller.__main__
+    
+    PyInstaller.__main__.run([
+        '--name=Aleksameter',
+        '--windowed',
+        '--onefile',
+        '--add-data=resources:resources',
+        '--add-data=*.json:.',
+        '--add-data=*.html:.',
+        'mainwindow.py'
+    ])
+\end{lstlisting}
+
+\subsection{Authority-Bypass für Unternehmensumgebungen}
+
+Für Deployment in Unternehmensumgebungen mit eingeschränkten Benutzerrechten implementiert das System Authority-Bypass-Mechanismen:
+
+\begin{lstlisting}[language=Python, caption=Authority-Bypass Implementation]
+def setup_portable_mode(self):
+    """Konfiguriert portablen Modus fuer eingeschraenkte Umgebungen"""
+    # Portable Einstellungen in Anwendungsverzeichnis
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    settings_dir = os.path.join(app_dir, 'portable_settings')
+    
+    if not os.path.exists(settings_dir):
+        os.makedirs(settings_dir)
+    
+    # QSettings auf portables Verzeichnis umleiten
+    QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, settings_dir)
+\end{lstlisting}
+
+\subsection{Automatisierte Wartungstools}
+
+Das System inkludiert Tools für automatisierte Wartung und Systemdiagnose:
+
+\begin{lstlisting}[language=Python, caption=Systemdiagnose und Wartung]
+def run_system_diagnostics(self):
+    """Fuehrt umfassende Systemdiagnose durch"""
+    diagnostics = {
+        'python_version': sys.version,
+        'qt_version': QtCore.qVersion(),
+        'numpy_version': np.__version__,
+        'available_memory': self.get_available_memory(),
+        'config_integrity': self.verify_config_files(),
+        'font_availability': self.check_font_availability()
+    }
+    
+    return diagnostics
+
+def verify_config_files(self):
+    """Ueberprueft Integritaet aller Konfigurationsdateien"""
+    config_files = ['default_settings.json', 'font_settings.json']
+    
+    for config_file in config_files:
+        try:
+            with open(config_file, 'r') as f:
+                json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            self.regenerate_config_file(config_file)
+            
+    return True
+\end{lstlisting}

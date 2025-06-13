@@ -17,24 +17,24 @@ class ColorCalculator:
         """
         print("Initializing ColorCalculator...")
         
-        # 加载CIE数据
+        # Load CIE data
         self.cie_1931 = self.load_cie_data_from_csv()
         print(f"CIE data: {len(self.cie_1931['wavelengths'])} points, "
               f"step: {self.cie_1931['wavelengths'][1] - self.cie_1931['wavelengths'][0]}nm")
         
-        # 加载光源数据
+        # Load illuminant data
         self.illuminants = self.load_illuminants()
-        self.illuminant = 'D65'  # 默认使用D65光源
+        self.illuminant = 'D65'  # Default to D65 illuminant
         for illuminant_name in self.illuminants.keys():
             print(f"Illuminant {illuminant_name}: {len(self.illuminants[illuminant_name])} points")
         
-        # 打印光源关键信息以便比较
+        # Print key illuminant information for comparison
         self.print_illuminant_info()
         
-        # 设置默认波长范围
-        self.wavelengths = np.arange(380, 781, 5)  # 380-780nm，5nm步长
+        # Set default wavelength range
+        self.wavelengths = np.arange(380, 781, 5)  # 380-780nm，5nmstep
         
-        # 设置默认参数
+        # Set default parameters
         self.calibration_mode = None
         self.black_reference = None
         self.white_reference = None
@@ -43,13 +43,13 @@ class ColorCalculator:
         print("ColorCalculator initialization completed")
     
     def print_illuminant_info(self):
-        """打印光源信息，用于调试比较不同光源的差异"""
+        """Print illuminant information for debugging and comparing differences between illuminants"""
         if 'D65' in self.illuminants and 'D50' in self.illuminants:
             d65 = self.illuminants['D65']
             d50 = self.illuminants['D50']
             
             if len(d65) > 0 and len(d50) > 0:
-                # 计算相对差异
+                # Calculate relative differences
                 diff_percent = np.mean(np.abs((d65 - d50) / (d65 + 1e-10)) * 100)
                 max_diff_idx = np.argmax(np.abs(d65 - d50))
                 max_diff_percent = np.abs((d65[max_diff_idx] - d50[max_diff_idx]) / (d65[max_diff_idx] + 1e-10)) * 100
@@ -57,22 +57,22 @@ class ColorCalculator:
                 wavelengths = self.cie_1931['wavelengths']
                 max_diff_wavelength = wavelengths[max_diff_idx] if max_diff_idx < len(wavelengths) else "unknown"
                 
-                print(f"D65 vs D50 平均差异: {diff_percent:.2f}%, 最大差异: {max_diff_percent:.2f}% at {max_diff_wavelength}nm")
-                print(f"D65 前10个值: {d65[:10]}")
-                print(f"D50 前10个值: {d50[:10]}")
+                print(f"D65 vs D50 average difference: {diff_percent:.2f}%, max difference: {max_diff_percent:.2f}% at {max_diff_wavelength}nm")
+                print(f"D65 first 10 values: {d65[:10]}")
+                print(f"D50 first 10 values: {d50[:10]}")
     
     def get_resource_path(self, relative_path):
         """
-        获取资源文件的绝对路径，适用于开发环境和PyInstaller打包环境
+        Get absolute path of resource file, suitable for development environment and PyInstaller packaging environment
         
         Parameters:
-            relative_path: 相对路径
+            relative_path: Relative path
             
         Returns:
-            绝对路径
+            Absolute path
         """
         try:
-            # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
+            # PyInstaller creates temporary folder, stores path in _MEIPASS
             base_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
             return os.path.join(base_path, relative_path)
         except Exception as e:
@@ -207,9 +207,9 @@ class ColorCalculator:
                 if len(illuminant_d50) > 0:
                     illuminants['D50'] = np.array(illuminant_d50)
                     print(f"Loaded D50 light source: {len(illuminant_d50)} points, range: {min(illuminant_d50):.6f}-{max(illuminant_d50):.6f}")
-                    # 确保D50与D65有明显区别，避免数值过于接近导致计算结果相同
+                    # Ensure D50 is distinctly different from D65, avoid values too close that cause identical calculation results
                     if np.allclose(illuminant_d50, illuminant_d65, rtol=1e-3, atol=1e-3):
-                        print("警告: D50光源数据与D65过于接近，使用内置D50数据替代")
+                        print("Warning: D50 light source data too close to D65, using built-in D50 data instead")
                         illuminants['D50'] = self.load_default_d50()
                 
                 # Calculate uniform light source E (all wavelengths power equal)
@@ -249,8 +249,8 @@ class ColorCalculator:
             return self.load_default_illuminants()
     
     def load_default_d50(self):
-        """载入内置D50光源数据，5nm步长"""
-        # CIE D50标准光源，5nm步长，380-780nm
+        """Load built-in D50 illuminant data, 5nm step"""
+        # CIE D50 standard illuminant, 5nm step, 380-780nm
         d50 = np.array([
             23.96, 25.8, 27.7, 29.8, 32.0, 39.0, 49.9, 59.8, 63.5, 65.7,
             75.1, 77.9, 77.0, 76.0, 75.4, 73.5, 71.4, 73.0, 74.5, 75.9,
@@ -354,8 +354,8 @@ class ColorCalculator:
     
     def load_matlab_xyzbar(self):
         """
-        方法被移除，避免依赖MATLAB文件
-        该方法仅用于兼容性参考，不再需要
+        Method removed to avoid MATLAB file dependency
+        This method is only for compatibility reference, no longer needed
         """
         print("MATLAB compatibility mode is disabled in this version")
         return None
@@ -369,12 +369,12 @@ class ColorCalculator:
         """
         if illuminant in self.illuminants:
             if self.illuminant != illuminant:
-                print(f"更改光源: {self.illuminant} -> {illuminant}")
+                print(f"Changing light source: {self.illuminant} -> {illuminant}")
                 self.illuminant = illuminant
             else:
-                print(f"保持当前光源: {illuminant}")
+                print(f"Keeping current light source: {illuminant}")
         else:
-            print(f"未知光源 '{illuminant}'，保持当前光源: {self.illuminant}")
+            print(f"Unknown light source '{illuminant}', keeping current light source: {self.illuminant}")
     
     def set_calibration_mode(self, mode, black_ref=None, white_ref=None):
         """
@@ -548,8 +548,8 @@ class ColorCalculator:
         Returns:
             CIE XYZ three values
         """
-        # 打印当前使用的光源名称，用于调试
-        print(f"计算XYZ使用光源: {self.illuminant}")
+        # Print current light source name for debugging
+        print(f"Calculating XYZ using light source: {self.illuminant}")
         
         if use_matlab_compatible:
             return self.calculate_xyz_matlab_compatible(reflectance, wavelengths)

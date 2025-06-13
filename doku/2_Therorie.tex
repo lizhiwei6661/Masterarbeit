@@ -1,0 +1,515 @@
+\chapter{Grundlagen und verwandte Arbeiten}
+
+\section{Spektrale Reflexionsmessung}
+
+\subsection{Physikalische Grundlagen der Reflexionsmessung}
+
+Die spektrale Reflexionsmessung bildet die fundamentale Basis für präzise Farbbestimmungen in wissenschaftlichen und industriellen Anwendungen. Der spektrale Reflexionsgrad $\rho(\lambda)$ einer Oberfläche ist definiert als das Verhältnis des reflektierten spektralen Strahlungsflusses $\Phi_{e,r}(\lambda)$ zum einfallenden spektralen Strahlungsfluss $\Phi_{e,i}(\lambda)$ bei einer bestimmten Wellenlänge $\lambda$ \parencite{DIN5036-1}:
+
+\begin{equation}
+\rho(\lambda) = \frac{\Phi_{e,r}(\lambda)}{\Phi_{e,i}(\lambda)}
+\label{eq:reflexionsgrad}
+\end{equation}
+
+Für praktische Messungen wird der Reflexionsgrad häufig relativ zu einer Weißreferenz bestimmt. Das Aleksameter implementiert diese Relativmessung durch eine Kalibrierungssequenz, bei der sowohl eine Schwarz- als auch eine Weißreferenz erfasst wird. Die korrigierte Reflexion ergibt sich nach den einschlägigen Normen und Literatur \parencite{DIN5036-3, Hentschel2002, Baer2020, Piotrowska2022} zu:
+
+\begin{equation}
+R(\lambda) = \frac{(\Phi_{e,\lambda} - \Phi_{e,\lambda,s}) \cdot \Phi_{e,\lambda,w}}{(\Phi_{e,\lambda,w} - \Phi_{e,\lambda,s}) \cdot \Phi_{e,\lambda}} \cdot \rho_\lambda
+\label{eq:kali}
+\end{equation}
+
+wobei $\Phi_{e,\lambda}$ die Probenmessung, $\Phi_{e,\lambda,s}$ die Schwarzreferenz, $\Phi_{e,\lambda,w}$ die Weißreferenz und $\rho_\lambda$ der wellenlängenabhängige Korrekturfaktor darstellen.
+
+\subsection{Messtechnische Herausforderungen}
+
+Die präzise Bestimmung spektraler Reflexionsgrade unterliegt verschiedenen messtechnischen Limitationen. Insbesondere die spektrale Auflösung und der erfasste Wellenlängenbereich haben direkten Einfluss auf die Genauigkeit der nachgelagerten Farbberechnungen \parencite{Schanda2007}.
+
+Konventionelle Spektralphotometer decken typischerweise den Bereich von \SI{380}{\nano\meter} bis \SI{780}{\nano\meter} ab, entsprechend dem für das menschliche Auge relevanten Spektralbereich. Die spektrale Auflösung variiert je nach Geräteklasse zwischen \SI{1}{\nano\meter} und \SI{10}{\nano\meter}. Das von \textcite{Piotrowska2022} entwickelte Aleksameter erreicht eine Auflösung von \SI{1}{\nano\meter} im Bereich von \SI{380}{\nano\meter} bis \SI{780}{\nano\meter}.
+
+\section{Farbwissenschaftliche Grundlagen}
+
+\subsection{CIE-Normvalenzsystem und Tristimulus-Werte}
+
+Die mathematische Beschreibung von Farben basiert auf dem von der Commission Internationale de l'Éclairage (CIE) 1931 standardisierten Normvalenzsystem \parencite{CIE015}. Die Tristimulus-Werte $X$, $Y$ und $Z$ einer farbigen Probe ergeben sich durch Integration des Produkts aus spektraler Reflexion $R(\lambda)$, Beleuchtung $S(\lambda)$ und den Normspektralwertfunktionen $\overline{x}(\lambda)$, $\overline{y}(\lambda)$ und $\overline{z}(\lambda)$ des CIE-Normalbeobachters:
+
+\begin{align}
+X &= k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{x}(\lambda) \, \mathrm{d}\lambda \label{eq:tristimulus_x}\\
+Y &= k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{y}(\lambda) \, \mathrm{d}\lambda \label{eq:tristimulus_y}\\
+Z &= k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{z}(\lambda) \, \mathrm{d}\lambda \label{eq:tristimulus_z}
+\end{align}
+
+Der Normierungsfaktor $k$ wird so gewählt, dass für einen idealen Weißkörper gilt: $Y = 100$:
+
+\begin{equation}
+k = \frac{100}{\int_{380}^{780} S(\lambda) \cdot \overline{y}(\lambda) \, \mathrm{d}\lambda}
+\label{eq:normierungsfaktor}
+\end{equation}
+
+\subsection{Normbeleuchtungsarten und Beobachterbedingungen}
+
+Für reproduzierbare Farbmessungen definiert die CIE verschiedene Standardbeleuchtungsarten \parencite{CIE015}. Die mathematische Beschreibung von Farben hängt fundamental von der gewählten Beleuchtungsbedingung ab, da die spektrale Leistungsverteilung der Beleuchtung $S(\lambda)$ direkt in die Berechnung der Tristimulus-Werte eingeht.
+
+\subsubsection{CIE-Standardbeleuchtungsarten}
+
+Das Aleksameter-System unterstützt vier wichtige CIE-Standardbeleuchtungsarten:
+
+\begin{itemize}
+    \item \textbf{Normlichtart D65}: Repräsentiert mittleres Tageslicht mit einer korrelierten Farbtemperatur von \SI{6504}{\kelvin}. Die spektrale Leistungsverteilung $S_{D65}(\lambda)$ approximiert das Tageslichtspektrum bei wolkenlosem Himmel zur Mittagszeit und ist der am häufigsten verwendete Standard.
+    
+    \item \textbf{Normlichtart D50}: Simuliert Tageslicht mit \SI{5003}{\kelvin} und wird standardmäßig in der Druckindustrie verwendet. Die spektrale Verteilung $S_{D50}(\lambda)$ weicht systematisch von D65 ab, insbesondere im rötlichen Spektralbereich.
+    
+    \item \textbf{Normlichtart A}: Entspricht der Emission einer Wolframglühlampe mit \SI{2856}{\kelvin}. Die spektrale Leistungsverteilung $S_A(\lambda)$ folgt näherungsweise der Planck'schen Strahlungsformel für einen schwarzen Körper.
+    
+    \item \textbf{Normlichtart E}: Äquienergetische Beleuchtung mit konstanter spektraler Leistungsverteilung $S_E(\lambda) = \text{konstant}$ über den gesamten sichtbaren Bereich. Diese theoretische Beleuchtung dient als Referenz für farbmetrische Berechnungen.
+\end{itemize}
+
+\subsubsection{Integration von Beleuchtung und Reflexion}
+
+Die spektrale Leistungsverteilung der Beleuchtung $S(\lambda)$ geht direkt in die Berechnung der Tristimulus-Werte ein. Die tatsächlich wahrgenommene Farbinformation ergibt sich aus dem Produkt der spektralen Reflexion $R(\lambda)$ mit der Beleuchtung $S(\lambda)$:
+
+\begin{equation}
+\Phi(\lambda) = R(\lambda) \cdot S(\lambda)
+\label{eq:spektraler_strahlungsfluss}
+\end{equation}
+
+wobei $\Phi(\lambda)$ den spektralen Strahlungsfluss der reflektierten Strahlung darstellt. Die Tristimulus-Werte ergeben sich dann durch Integration über das sichtbare Spektrum:
+
+\begin{align}
+X &= k \int_{380}^{780} \Phi(\lambda) \cdot \overline{x}(\lambda) \, \mathrm{d}\lambda = k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{x}(\lambda) \, \mathrm{d}\lambda \\
+Y &= k \int_{380}^{780} \Phi(\lambda) \cdot \overline{y}(\lambda) \, \mathrm{d}\lambda = k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{y}(\lambda) \, \mathrm{d}\lambda \\
+Z &= k \int_{380}^{780} \Phi(\lambda) \cdot \overline{z}(\lambda) \, \mathrm{d}\lambda = k \int_{380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{z}(\lambda) \, \mathrm{d}\lambda
+\end{align}
+
+\subsubsection{Normierungsfaktor für verschiedene Beleuchtungsarten}
+
+Der Normierungsfaktor $k$ wird durch die gewählte Beleuchtungsart bestimmt und stellt sicher, dass für einen idealen diffus reflektierenden weißen Standard ($R(\lambda) = 1$ für alle $\lambda$) der Y-Wert genau 100 beträgt:
+
+\begin{equation}
+k = \frac{100}{\int_{380}^{780} S(\lambda) \cdot \overline{y}(\lambda) \, \mathrm{d}\lambda}
+\label{eq:normierungsfaktor_beleuchtung}
+\end{equation}
+
+Dieser Normierungsfaktor variiert je nach gewählter Beleuchtungsart und gewährleistet die Vergleichbarkeit der Messergebnisse zwischen verschiedenen Standardbeleuchtungen.
+
+\subsubsection{Implementierung im Aleksameter-System}
+
+Das Aleksameter-System lädt spektrale Beleuchtungsdaten aus standardisierten CSV-Dateien oder verwendet eingebaute Referenzdaten. Die spektralen Leistungsverteilungen werden bei Bedarf mittels linearer Interpolation an das CIE-Wellenlängengitter angepasst.
+
+Die XYZ-Berechnung im Aleksameter folgt der diskreten Summation entsprechend der verfügbaren Wellenlängenschritte:
+
+\begin{align}
+X &= k \sum_{\lambda=380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{x}(\lambda) \cdot \Delta\lambda \\
+Y &= k \sum_{\lambda=380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{y}(\lambda) \cdot \Delta\lambda \\
+Z &= k \sum_{\lambda=380}^{780} R(\lambda) \cdot S(\lambda) \cdot \overline{z}(\lambda) \cdot \Delta\lambda
+\end{align}
+
+wobei $\Delta\lambda$ dem Wellenlängenschritt (typischerweise \SI{1}{\nano\meter} oder \SI{5}{\nano\meter}) entspricht.
+
+\subsubsection{Auswirkungen der Beleuchtungsarten-Wahl}
+
+Die Wahl der Beleuchtungsart hat erheblichen Einfluss auf die berechneten Farbkoordinaten. Bei identischer spektraler Reflexion können die Unterschiede zwischen D65 und D50 durchschnittlich mehrere Prozent betragen, mit maximalen Abweichungen von über 10\% in bestimmten Spektralbereichen.
+
+Diese systematischen Unterschiede verdeutlichen die Notwendigkeit einer konsistenten Beleuchtungsarten-Wahl für vergleichbare Messergebnisse, insbesondere bei Anwendungen in der digitalen Farbwiedergabe und Virtual-Reality-Umgebungen, wie sie im Rahmen dieser Arbeit angestrebt werden.
+
+Die Aleksameter-Software ermöglicht die Auswahl der Beleuchtungsart entsprechend der jeweiligen Anwendungsanforderungen und stellt somit eine flexible Lösung für verschiedene farbmetrische Fragestellungen dar.
+
+\section{Aleksameter-Hardware und Systemintegration}
+
+Das Aleksameter stellt eine kostengünstige und portable Alternative zu kommerziellen Spektroradiometern dar. Die Hardwareentwicklung basiert auf dem kommerziellen Spektrometer Spectraval 1511 \parencite{Piotrowska2022}, das als Referenzmessgerät und Designgrundlage diente.
+
+\subsection{System-Charakteristika}
+
+Für die Softwareentwicklung sind folgende systemrelevante Eigenschaften des Aleksameters von Bedeutung:
+
+\begin{itemize}
+    \item \textbf{Spektraler Messbereich:} 380-780 nm (vollständiges sichtbares Spektrum)
+    \item \textbf{Datenausgabe:} CSV-Format mit Wellenlängen-Reflexionsgrad-Zuordnung
+    \item \textbf{Messmodus:} Kalibrierungsbasierte Reflexionsgradmessung
+    \item \textbf{Schnittstelle:} USB-Datenübertragung für PC-Integration
+\end{itemize}
+
+\subsection{Software-Hardware-Integration}
+
+Die entwickelte Software unterstützt zwei Betriebsmodi entsprechend der verfügbaren Eingangsdaten:
+
+\begin{enumerate}
+    \item \textbf{Aleksameter-Modus:} Verarbeitung von Rohmessdaten mit Referenzkalibrierung
+    \item \textbf{Generic-Modus:} Verarbeitung bereits kalibrierter Reflexionsdaten
+\end{enumerate}
+
+\subsection{Kalibriermethodik}
+
+Das Aleksameter implementiert eine Zwei-Punkt-Kalibrierung zur Kompensation von Geräteeigenschaften und Umgebungseinflüssen. Die Software berechnet den spektralen Reflexionsgrad nach folgender Formel \ref{eq:kali} \parencite{DIN5036-3, Hentschel2002, Baer2020, Piotrowska2022}:
+
+\begin{equation}
+    \rho(\lambda) = \frac{(M(\lambda) - B(\lambda)) \cdot W(\lambda)}{(W(\lambda) - B(\lambda)) \cdot M(\lambda)} \cdot \rho_{\lambda}
+    \label{eq:aleksameter_kalibrierung}
+\end{equation}
+
+wobei:
+\begin{itemize}
+    \item $\rho(\lambda)$ der spektrale Reflexionsgrad
+    \item $M(\lambda)$ die Messprobe
+    \item $B(\lambda)$ die Schwarzreferenz  
+    \item $W(\lambda)$ die Weißreferenz
+    \item $\rho_{\lambda}$ der Korrekturfaktor (Standard: 0,989)
+\end{itemize}
+
+Diese Kalibriersequenz wird in der Software automatisch ausgeführt, wenn der Aleksameter-Modus gewählt und entsprechende Referenzdateien bereitgestellt werden.
+
+\subsection{Datenformat und Verarbeitung}
+
+Das Aleksameter generiert Messdaten im standardisierten CSV-Format:
+
+\begin{verbatim}
+Wavelength [nm], Sample1, Sample2, Sample3, ...
+380, 0.123456, 0.234567, 0.345678, ...
+385, 0.125678, 0.236789, 0.347890, ...
+...
+780, 0.543210, 0.654321, 0.765432, ...
+\end{verbatim}
+
+Dieses Format ermöglicht die direkte Einbindung in die Softwareumgebung ohne zusätzliche Konvertierungsschritte.
+\section{Software-Engineering für wissenschaftliche Anwendungen}
+\label{sec:software_engineering}
+
+\subsection{Wissenschaftliche Programmierplattformen: MATLAB vs Python}
+
+Die Entwicklung wissenschaftlicher Software erfordert eine sorgfältige Auswahl der Programmierplattform. Für die Neuentwicklung der Aleksameter-Software wurde eine umfassende Evaluierung zwischen MATLAB und Python durchgeführt.
+
+\subsubsection{MATLAB-Analyse}
+
+Die ursprüngliche Aleksameter-Software wurde mit MATLAB App Designer entwickelt \parencite{Matlab}. MATLAB bietet folgende Vorteile:
+
+\begin{itemize}
+    \item Native Unterstützung für numerische Berechnungen und Matrixoperationen
+    \item Integrierte Toolboxen für Signalverarbeitung und Bildanalyse
+    \item MATLAB App Designer für GUI-Entwicklung
+    \item Umfangreiche Dokumentation und wissenschaftliche Community
+\end{itemize}
+
+Jedoch zeigten sich erhebliche Nachteile:
+
+\begin{itemize}
+    \item \textbf{Lizenzkosten:} Kommerzielle Software mit hohen Anschaffungskosten
+    \item \textbf{Plattformabhängigkeit:} Erfordert MATLAB-Installation auf Zielsystem
+    \item \textbf{Deployment-Limitierungen:} MATLAB Runtime erforderlich für eigenständige Anwendungen
+    \item \textbf{GUI-Limitierungen:} App Designer bietet begrenzte Gestaltungsmöglichkeiten
+    \item \textbf{Performance:} Interpretierte Sprache mit Geschwindigkeitslimitierungen
+\end{itemize}
+
+\subsubsection{Python als wissenschaftliche Plattform}
+
+Python \parencite{Python} etablierte sich als führende Plattform für wissenschaftliches Rechnen durch das umfangreiche Ökosystem spezialisierter Bibliotheken:
+
+\begin{itemize}
+    \item \textbf{NumPy \parencite{NumPy}:} Fundamentale Unterstützung für mehrdimensionale Arrays und mathematische Funktionen
+    \item \textbf{SciPy \parencite{SciPy}:} Erweiterte wissenschaftliche Berechnungen und Algorithmen
+    \item \textbf{Matplotlib \parencite{Matplotlib}:} Professionelle 2D/3D-Visualisierung und Ploterstellung
+    \item \textbf{Pandas \parencite{Pandas}:} Datenmanipulation und -analyse
+    \item \textbf{OpenPyXL \parencite{OpenPyXL}:} Excel-Dateien Lesen und Schreiben
+    \item \textbf{Colour Science \parencite{ColourScience}:} Spezialisierte Bibliothek für farbmetrische Berechnungen
+\end{itemize}
+
+Die Vorteile von Python für diese Anwendung:
+
+\begin{itemize}
+    \item \textbf{Open Source:} Kostenfreie Nutzung ohne Lizenzrestriktionen
+    \item \textbf{Plattformunabhängigkeit:} Native Unterstützung für Windows, macOS und Linux
+    \item \textbf{Performance:} NumPy/SciPy \parencite{NumPy, SciPy} nutzen optimierte C/Fortran-Bibliotheken (BLAS, LAPACK)
+    \item \textbf{Flexibilität:} Umfangreiche GUI-Frameworks verfügbar
+    \item \textbf{Wissenschaftliche Genauigkeit:} Präzise Implementierung farbmetrischer Standards
+\end{itemize}
+
+\subsection{GUI-Framework-Auswahl: Qt und PySide6}
+
+Für die Benutzeroberfläche wurde Qt \parencite{Qt6} als Framework gewählt, implementiert über PySide6 \parencite{PySide6} - die offizielle Python-Bindung der Qt Company.
+
+\subsubsection{Qt-Framework-Eigenschaften}
+
+Qt \parencite{Qt6} bietet als plattformübergreifendes Framework folgende Vorteile:
+
+\begin{itemize}
+    \item \textbf{Native Performance:} C++-basierte Rendering-Engine
+    \item \textbf{Plattformintegration:} Natives Look-and-Feel auf allen Betriebssystemen
+    \item \textbf{Umfangreiche Widgets:} Spezialisierte Komponenten für wissenschaftliche Anwendungen
+    \item \textbf{Mature Technology:} Über 25 Jahre Entwicklungsgeschichte und Stabilität
+\end{itemize}
+
+\subsubsection{PySide6: Offizielle und lizenzfreie Lösung}
+
+PySide6 \parencite{PySide6} wurde als Python-Bindung gewählt aus folgenden Gründen:
+
+\begin{itemize}
+    \item \textbf{Offizielle Unterstützung:} Direkt von der Qt Company entwickelt und gepflegt
+    \item \textbf{LGPL-Lizenz:} Freie Nutzung für Open-Source- und kommerzielle Projekte
+    \item \textbf{Keine Lizenzgebühren:} Im Gegensatz zu PyQt keine kommerziellen Lizenzkosten
+    \item \textbf{Vollständige API-Abdeckung:} Zugang zu allen Qt-Funktionalitäten
+    \item \textbf{Aktive Entwicklung:} Regelmäßige Updates und Qt6-Kompatibilität
+\end{itemize}
+
+\subsection{Deployment und Paketierung}
+
+Für die Erstellung eigenständiger Anwendungen wurde PyInstaller \parencite{PyInstaller} eingesetzt, welches die Python-Anwendung samt aller Abhängigkeiten in ausführbare Dateien für verschiedene Betriebssysteme konvertiert.
+
+\subsection{Architekturvergleich und Migrationsstrategie}
+
+Die Migration von MATLAB zu Python erforderte eine vollständige Neuarchitektur der Software:
+
+\begin{table}[htbp]
+\centering
+\caption{Technologievergleich MATLAB vs Python-Implementierung}
+\label{tab:tech_comparison}
+\renewcommand{\arraystretch}{1.5} % 增加行高
+\begin{tabular}{|p{4.5cm}|p{4.5cm}|p{4.5cm}|}
+\hline
+\textbf{Komponente} & \textbf{MATLAB (Alt)} & \textbf{Python (Neu)} \\
+\hline
+GUI-Framework & App Designer & PySide6/Qt6 \\
+\hline
+Numerische Berechnungen & Native MATLAB & NumPy/SciPy \\
+\hline
+Datenvisualisierung & MATLAB Plots & Matplotlib \\
+\hline
+Farbberechnungen & Custom Code & colour-science + Custom \\
+\hline
+Datenimport/-export & MATLAB I/O & Pandas + openpyxl \\
+\hline
+Packaging & MATLAB Runtime & PyInstaller \\
+\hline
+Lizenzmodell & Kommerziell & Open Source \\
+\hline
+\end{tabular}
+\end{table}
+
+Die Python-Implementierung erreicht dabei vollständige Kompatibilität zu den MATLAB-Berechnungsalgorithmen bei gleichzeitiger Verbesserung der Systemarchitektur und Benutzerfreundlichkeit.
+
+\section{Funktionale Analyse der ursprünglichen Software}
+
+Die ursprüngliche Aleksameter-Software wurde von Marina Leontopoulos mit dem MATLAB App Designer entwickelt und stellte die erste funktionsfähige Softwarelösung für das tragbare Spektrometer dar. Eine umfassende Analyse der bestehenden Implementierung bildet die Grundlage für die Anforderungsdefinition der Neuentwicklung.
+
+\subsection{Architektur und Datenverarbeitung}
+
+Die MATLAB-basierte Implementierung folgt einem monolithischen Ansatz, bei dem alle Funktionalitäten in einer einzigen App-Designer-Anwendung integriert sind. Die Datenverarbeitung umfasst den Import von CSV-Dateien mit spektralen Messdaten, die Verarbeitung von Schwarz- und Weißreferenzen entsprechend der Kalibrierungsformel aus Gleichung \ref{eq:kali}, sowie die Transformation von Reflexionsdaten zu CIE XYZ-Werten. 
+
+Die zentrale Berechnungslogik basiert auf einer \lstinline{xyXYZ}-Funktion, welche die Tristimulus-Werte unter Verwendung der gleichen mathematischen Grundlagen berechnet, die später in der Python-Implementierung übernommen wurden. Diese Berechnung stellt sicher, dass die spektralen Daten korrekt mit den CIE-Normspektralwertfunktionen und der gewählten Beleuchtungsart kombiniert werden. Die Visualisierung der Ergebnisse erfolgt durch einfache Spektralplot-Darstellungen und numerische Anzeigen der berechneten Farbwerte.
+
+\subsection{Benutzeroberfläche und Interaktionsdesign}
+
+Die ursprüngliche Benutzeroberfläche wurde vollständig mit MATLAB App Designer entwickelt und zeigt die typischen Charakteristika dieser Entwicklungsumgebung. Das Hauptfenster der Anwendung, wie in Abbildung \ref{fig:matlab_hauptfenster} dargestellt, verwendet ein statisches Grid-basiertes Layout mit fest definierten Komponenten, wodurch die Flexibilität bei verschiedenen Bildschirmauflösungen eingeschränkt wird.
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=15cm]{./figures/Matlab_Fenster.png}
+    	\caption{Hauptfenster der ursprünglichen MATLAB-basierten Aleksameter-Software}
+    	\label{fig:matlab_hauptfenster}
+    \end{figure}
+    
+Die Eingabemethoden basieren primär auf Dateiauswahl über Dialog-Fenster und manuelle Parametereinstellungen. Die Benutzerführung erfolgt über eine Schaltflächen-basierte Navigation, wobei kritische Funktionen wie Import, Calculate und Export direkt in der Hauptansicht verfügbar sind. Zwei separates Einstellungsdialoge, dargestellt in Abbildungen \ref{fig:matlab_settings} und \ref{fig:Matlab_Setting_Plot} , ermöglichen die Konfiguration von Beleuchtungsarten und Kalibrierungsparametern, allerdings mit begrenzten Anpassungsmöglichkeiten und nicht in eine Fenster intergrien.
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=15cm]{./figures/Matlab_Setting.png}
+    	\caption{Einstellungsdialog der ursprünglichen MATLAB-Software für Beleuchtungsarten und Parameter}
+    	\label{fig:matlab_settings}
+    \end{figure}
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=15cm]{./figures/Matlab_Setting_Plot.png}
+    	\caption{Ploteinstellungen-Dialog der ursprünglichen MATLAB-Software für Visualisierungsparameter}
+    	\label{fig:Matlab_Setting_Plot}
+    \end{figure}
+    
+Die Ausgabeformate beschränken sich auf numerische Anzeigen von Farbwerten und einfache Spektralplot-Darstellungen. Erweiterte Visualisierungsmöglichkeiten wie CIE-Chromatizitätsdiagramme oder Gamut-Vergleiche sind in der ursprünglichen Version nicht implementiert.
+
+\subsection{Datenformate und Kompatibilität}
+
+Die MATLAB-Lösung unterstützt folgende Datenformate:
+
+\begin{itemize}
+    \item \textbf{Eingabe:} CSV-Dateien mit Wellenlängen-Reflexionsgrad-Zuordnung
+    \item \textbf{Referenzdaten:} Separate CSV-Dateien für Schwarz- und Weißkalibrierung
+    \item \textbf{CIE-Daten:} Eingebettete MAT-Dateien mit Normspektralwertfunktionen
+    \item \textbf{Ausgabe:} Begrenzte Exportfunktionen für berechnete Farbwerte
+\end{itemize}
+
+\section{Identifizierte Probleme und Limitationen}
+
+Die Analyse der ursprünglichen MATLAB-Implementierung offenbarte mehrere kritische Schwachstellen, die eine vollständige Neuentwicklung rechtfertigen. Diese Probleme betreffen sowohl technische Aspekte als auch die Benutzerfreundlichkeit der Anwendung.
+
+\subsection{Benutzerfreundlichkeit}
+
+Die Benutzeroberfläche weist erhebliche Usability-Probleme auf, die den effizienten Arbeitsablauf behindern. Der Workflow für Standard-Messabläufe ist unintuitiv gestaltet und erfordert mehrere manuelle Schritte, die zu Fehlern führen können. Besonders problematisch ist die unzureichende Rückmeldung bei Eingabefehlern oder fehlerhaften Daten, wodurch Benutzer oft nicht erkennen können, warum bestimmte Operationen fehlschlagen. Die Dialoggestaltung und Interaktionsmuster sind inkonsistent, was zu Verwirrung bei der Bedienung führt. Ein besonders kritischer Mangel ist die fehlende Unterstützung für Batch-Verarbeitung mehrerer Messdateien, was bei umfangreichen Messreihen zu erheblichem manuellen Aufwand führt.
+
+\subsection{Plattformkompatibilität}
+
+Die MATLAB-basierte Lösung zeigt erhebliche Einschränkungen bezüglich der Portabilität und Verteilung:
+
+\begin{itemize}
+    \item \textbf{MATLAB Runtime Abhängigkeit:} Eigenständige Deployment erfordert Installation der MATLAB Runtime (\SI{>2}{\giga\byte})
+    \item \textbf{Lizenzrestriktionen:} Kommerzielle MATLAB-Lizenz erforderlich für Entwicklung und Modifikation
+    \item \textbf{Plattformlimitierungen:} Unterschiedliche Runtime-Versionen für Windows, macOS und Linux
+    \item \textbf{Update-Zyklen:} Abhängigkeit von MATLAB-Versionierung und Kompatibilitätszyklen
+\end{itemize}
+
+\subsection{Stabilität}
+
+Während der Evaluierung wurden mehrere Stabilitätsprobleme identifiziert, die den produktiven Einsatz beeinträchtigen. Memory Leaks bei wiederholter Verarbeitung großer Datensätze führen zu progressiver Verlangsamung der Anwendung. Unbehandelte Exceptions verursachen Programmabstürze, insbesondere bei der Verarbeitung korrupter oder unvollständiger CSV-Dateien. Die unzureichende Eingabeprüfung ermöglicht es fehlerhaften Daten, in die Berechnungspipeline zu gelangen, was zu falschen Ergebnissen oder Systemfehlern führen kann.
+
+\subsection{Erweiterbarkeit}
+
+Die monolithische Architektur der MATLAB-Lösung erschwert Weiterentwicklung und Wartung erheblich. Alle Funktionalitäten sind in einer einzigen App-Designer-Datei konzentriert, was die Modularität und Testbarkeit beeinträchtigt. Die unzureichende Kommentierung und Dokumentation der Implementierung macht Modifikationen zeitaufwändig und fehleranfällig. Das Fehlen automatisierter Tests oder Validierungsroutinen erschwert die Qualitätssicherung bei Änderungen.
+
+\section{Anforderungsanalyse für die Neuentwicklung}
+
+Basierend auf der umfassenden Analyse der bestehenden Lösung wurden systematische Anforderungen für die Neuentwicklung definiert. Diese Anforderungen adressieren sowohl die identifizierten Schwachstellen als auch erweiterte Funktionalitäten für verbesserte Benutzerfreundlichkeit und wissenschaftliche Anwendbarkeit.
+
+\subsubsection{Kernfunktionalitäten}
+
+Die grundlegenden farbmetrischen Berechnungen bilden das Herzstück der Anwendung:
+
+\begin{itemize}
+    \item \textbf{Spektraldatenverarbeitung:} Einlesen und Verarbeitung von CSV-Dateien mit spektralen Reflexionsgraden
+    \item \textbf{Kalibrierungsalgorithmus:} Exakte Reproduktion der MATLAB-Kalibrierungsberechnung für Aleksameter-Modi
+    \item \textbf{Farbberechnung:} Berechnung von CIE XYZ-Werten und xy-Chromatizitätskoordinaten
+    \item \textbf{RGB-Konvertierung:} Transformation zu linearen und gamma-korrigierten sRGB-Werten sowie Hexadezimal-Farbcodes
+    \item \textbf{Mehrfach-Beleuchtungsarten:} Unterstützung für D65, D50, A und E-Beleuchtungsarten
+\end{itemize}
+
+\subsubsection{Benutzeroberflächen-Verbesserungen}
+
+Das Hauptfenster wurde für eine intuitivere Bedienung grundlegend redesignt. Die Funktionsaufteilung erfolgt durch spezialisierte Schaltflächen, die entsprechende Dialoge öffnen. Die Reflexionsgradberechnung wird beispielsweise über eine dedizierte Schaltfläche zugänglich gemacht, was eine klarere Arbeitsweise ermöglicht.
+
+Alle Konfigurationsoptionen wurden in einem zentralisierten Einstellungsdialog konsolidiert. Dies ersetzt die verteilten Einstellungsmöglichkeiten der ursprünglichen MATLAB-Implementierung und bietet eine übersichtlichere Konfigurationsmöglichkeit für Beleuchtungsarten, Beobachterwinkel und weitere Parameter.
+
+\subsubsection{Erweiterte Datenverarbeitung}
+
+Für den Generic-Modus wurde eine automatische Erkennung implementiert, die Wellenlängenschrittweite und Spektralbereich selbstständig aus den importierten Daten identifiziert. Dies eliminiert manuelle Konfigurationsschritte und reduziert Bedienfehler erheblich.
+
+Die Exportfunktionalität wurde modularisiert: Spektraldiagramme und numerische Daten können separat exportiert werden, was eine flexiblere Nachbearbeitung ermöglicht. Zusätzlich können sowohl Excel-Dateien als auch PNG-Grafiken generiert werden.
+
+\subsubsection{Dokumentation und Benutzerführung}
+
+Ein integriertes Hilfesystem wurde über die Menüleiste zugänglich gemacht. Das HTML-basierte Benutzerhandbuch kann direkt aus der Anwendung heraus aufgerufen werden und bietet kontextsensitive Hilfestellungen für alle Funktionsbereiche.
+
+\section{Farbmetrische Fehleranalyse}
+
+Für die Bewertung der Genauigkeit farbmetrischer Berechnungen bei unterschiedlichen Wellenlängenbereichen sind standardisierte Fehlermetriken erforderlich. Diese ermöglichen die quantitative Analyse der Auswirkungen spektraler Datenverluste auf die Farbwahrnehmung \parencite{CIE15:2018, Fairchild2013}.
+
+\subsection{CIE L*a*b* Farbraum}
+
+Der CIE L*a*b* Farbraum ist ein visuell gleichabständiger Farbraum, in dem numerische Unterschiede proportional zu wahrgenommenen Farbunterschieden sind \parencite{CIE15:2018, CIELAB1976}. Die Transformation von XYZ-Werten in den L*a*b* Farbraum erfolgt über die nichtlineare Transformation:
+
+\begin{align}
+L^* &= 116 \cdot f(Y/Y_n) - 16 \label{eq:lab_l}\\
+a^* &= 500 \cdot [f(X/X_n) - f(Y/Y_n)] \label{eq:lab_a}\\
+b^* &= 200 \cdot [f(Y/Y_n) - f(Z/Z_n)] \label{eq:lab_b}
+\end{align}
+
+wobei $X_n$, $Y_n$, $Z_n$ die Tristimulus-Werte der Weißreferenz darstellen und die Funktion $f(t)$ definiert ist als:
+
+\begin{equation}
+f(t) = \begin{cases}
+\sqrt[3]{t} & \text{wenn } t > \delta^3 \\
+\frac{t}{3\delta^2} + \frac{4}{29} & \text{wenn } t \leq \delta^3
+\end{cases}
+\label{eq:lab_function}
+\end{equation}
+
+mit $\delta = \frac{6}{29}$.
+
+\subsection{CIE76 Farbdifferenz}
+
+Die CIE76 Farbdifferenz $\Delta E_{76}$ quantifiziert den Gesamtfarbunterschied zwischen zwei Farben im L*a*b* Farbraum \parencite{CIE15:2018, CIELAB1976}:
+
+\begin{equation}
+\Delta E_{76} = \sqrt{(\Delta L^*)^2 + (\Delta a^*)^2 + (\Delta b^*)^2}
+\label{eq:delta_e_76}
+\end{equation}
+
+wobei $\Delta L^* = L_2^* - L_1^*$, $\Delta a^* = a_2^* - a_1^*$ und $\Delta b^* = b_2^* - b_1^*$ die Differenzen der Lab-Koordinaten zwischen zwei Farben darstellen.
+
+\subsection{Numerische Integration für spektrale Farbberechnungen}
+
+In der praktischen Implementierung wird die kontinuierliche Integration durch eine diskrete Summation approximiert \parencite{Wyszecki1982, Hunt1999}. Die Tristimulus-Werte werden durch numerische Integration berechnet:
+
+\begin{align}
+X &= k \sum_{\lambda=380}^{780} S(\lambda) \cdot R(\lambda) \cdot \bar{x}(\lambda) \cdot \Delta\lambda \label{eq:tristimulus_integration_x}\\
+Y &= k \sum_{\lambda=380}^{780} S(\lambda) \cdot R(\lambda) \cdot \bar{y}(\lambda) \cdot \Delta\lambda \label{eq:tristimulus_integration_y}\\
+Z &= k \sum_{\lambda=380}^{780} S(\lambda) \cdot R(\lambda) \cdot \bar{z}(\lambda) \cdot \Delta\lambda \label{eq:tristimulus_integration_z}
+\end{align}
+
+wobei:
+\begin{itemize}
+    \item $S(\lambda)$ die spektrale Strahlungsverteilung der Lichtquelle
+    \item $R(\lambda)$ der spektrale Reflexionsgrad der Probe
+    \item $\bar{x}(\lambda), \bar{y}(\lambda), \bar{z}(\lambda)$ die CIE-Normspektralwertfunktionen
+    \item $k$ ein Normalisierungsfaktor mit $k = \frac{100}{\sum_{\lambda} S(\lambda) \cdot \bar{y}(\lambda) \cdot \Delta\lambda}$
+    \item $\Delta\lambda$ der Wellenlängenschritt (typischerweise 1 nm oder 5 nm)
+\end{itemize}
+
+\subsection{Relative Farbfehler und Komponentendifferenzen}
+
+Für die Bewertung der relativen Genauigkeit verschiedener Farbkoordinaten werden prozentuale Fehlermetriken verwendet \parencite{Fairchild2013}. Der relative Fehler zwischen Referenzwerten und gemessenen Werten wird berechnet als:
+
+\begin{equation}
+\text{Relativer Fehler}(\%) = \frac{|Wert_{gemessen} - Wert_{referenz}|}{|Wert_{referenz}|} \times 100
+\label{eq:relative_error}
+\end{equation}
+
+Für XYZ-Koordinaten werden die absoluten Differenzen als:
+
+\begin{align}
+\Delta X &= X_{gemessen} - X_{referenz} \label{eq:delta_x}\\
+\Delta Y &= Y_{gemessen} - Y_{referenz} \label{eq:delta_y}\\
+\Delta Z &= Z_{gemessen} - Z_{referenz} \label{eq:delta_z}
+\end{align}
+
+Entsprechend für Chromatizitätskoordinaten:
+
+\begin{align}
+\Delta x &= x_{gemessen} - x_{referenz} \label{eq:delta_chrom_x}\\
+\Delta y &= y_{gemessen} - y_{referenz} \label{eq:delta_chrom_y}
+\end{align}
+
+und für sRGB-Komponenten:
+
+\begin{align}
+\Delta R &= R_{gemessen} - R_{referenz} \label{eq:delta_rgb_r}\\
+\Delta G &= G_{gemessen} - G_{referenz} \label{eq:delta_rgb_g}\\
+\Delta B &= B_{gemessen} - B_{referenz} \label{eq:delta_rgb_b}
+\end{align}
+
+\subsection{Statistische Fehlermetriken}
+
+Für die Analyse mehrerer Messproben werden folgende statistische Metriken verwendet \parencite{Wyszecki1982}:
+
+\begin{align}
+\text{Mittlerer absoluter Fehler (MAE)} &= \frac{1}{n} \sum_{i=1}^{n} |x_{i,gemessen} - x_{i,referenz}| \label{eq:mae}\\
+\text{Mittlerer quadratischer Fehler (RMSE)} &= \sqrt{\frac{1}{n} \sum_{i=1}^{n} (x_{i,gemessen} - x_{i,referenz})^2} \label{eq:rmse}\\
+\text{Durchschnittliche relative Abweichung} &= \frac{1}{n} \sum_{i=1}^{n} \frac{|x_{i,gemessen} - x_{i,referenz}|}{|x_{i,referenz}|} \times 100 \label{eq:average_relative_error}
+\end{align}
+
+wobei $n$ die Anzahl der Messproben und $x_i$ die jeweiligen Farbkoordinaten darstellen.
+
+\subsection{Wahrnehmungsschwellen und Toleranzen}
+
+Für die praktische Bewertung der Farbunterschiede gelten folgende empirisch ermittelte Wahrnehmungsschwellen \parencite{CIE15:2018, Hunt1999}:
+
+\begin{itemize}
+    \item $\Delta E_{76} < 1$: Farbunterschied nicht wahrnehmbar für das untrainierte Auge
+    \item $1 \leq \Delta E_{76} < 3$: Farbunterschied gerade wahrnehmbar unter optimalen Bedingungen
+    \item $3 \leq \Delta E_{76} < 6$: Deutlich wahrnehmbare Farbunterschiede
+    \item $\Delta E_{76} \geq 6$: Sehr große, offensichtliche Farbunterschiede
+\end{itemize}
+
+Für industrielle Anwendungen gelten oft strengere Toleranzen:
+
+\begin{itemize}
+    \item \textbf{Hochpräzise Farbabstimmung}: $\Delta E_{76} < 0.5$
+    \item \textbf{Kommerzielle Druckproduktion}: $\Delta E_{76} < 2.0$
+    \item \textbf{Allgemeine industrielle Anwendung}: $\Delta E_{76} < 3.0$
+\end{itemize}
+
+Diese Schwellenwerte dienen als Referenz für die Bewertung der praktischen Relevanz berechneter Farbfehler in wissenschaftlichen und industriellen Anwendungen.

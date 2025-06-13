@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""§，
-Aleksameter反射率计算工具
-主程序入口
+"""
+Aleksameter Reflectance Calculation Tool
+Main Program Entry Point
 """
 
 import sys

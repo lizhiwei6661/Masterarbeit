@@ -1,0 +1,85 @@
+\chapter{Einleitung}
+\section{Hintergrund und Aufgabenstellung}
+In vielen Anwendungen der Lichttechnik, insbesondere bei der Simulation realistischer Tageslichtverhältnisse in virtuellen Realitäten (VR), ist die genaue Kenntnis der spektralen Reflexionseigenschaften realer Oberflächen entscheidend. Nur durch präzise Messungen des spektralen Reflexionsgrades lässt sich eine glaubwürdige und exakte Nachbildung natürlicher Lichtbedingungen erreichen \parencite{Scorpio2022}.Herkömmliche Messgeräte zur Bestimmung dieser spektralen Reflexionsgrade sind jedoch häufig teuer, schwer zu transportieren und in ihrer praktischen Handhabung eingeschränkt.
+
+Am Fachgebiet Lichttechnik der Technischen Universität Berlin wurde daher ein tragbares spektrales Reflexionsmessgerät, das sogenannte Aleksameter, entwickelt. Grundlage für dessen Entwicklung bilden insbesondere drei vorherige Arbeiten: die Untersuchung von \textcite{Piotrowska2022} zum „Bau eines Messgerätes zur Bestimmung spektraler Reflexionsgrade“, welche den Entwurf und die Realisierung eines portablen Messgeräts speziell für städtische Umgebungen beschreibt, sowie die Arbeiten von \textcite{SchaaleSegeroth2022} und \textcite{Kaczmarek2022} zur „Entwicklung eines LED-Prüfstandes zur Realisierung einer Normlichtquelle mittels additiver Farbmischung von Leuchtdioden“.
+
+Die ursprüngliche Softwarelösung, entwickelt von Marina Leontopoulos mithilfe des MATLAB App Designers, zeigte jedoch Schwächen hinsichtlich Benutzerfreundlichkeit, Plattformkompatibilität und Stabilität. Ziel dieser Masterarbeit ist es daher, die Softwareoberfläche umfassend neu zu gestalten, bestehende Programmfehler zu beheben sowie zusätzliche Funktionen einzuführen, die die Vielseitigkeit und Benutzerfreundlichkeit des Gesamtsystems verbessern. Dabei soll die Software plattformübergreifend anwendbar gemacht werden. Zudem wird eine Fehleranalyse durchgeführt, um den Einfluss von Wellenlängenbegrenzungen auf die Genauigkeit der Reflexionsgradmessungen zu untersuchen.
+
+\section{Aufbau}
+Diese Arbeit gliedert sich in zwei Hauptteile. Der erste Teil befasst sich mit der Neuentwicklung der Software für das Aleksameter. In the second part, eine forschungsbezogene Fragestellung untersucht: Es wird analysiert, inwieweit sich die Farbgenauigkeit verändert, wenn der spektrale Reflexionsgrad nur über ein verkürztes Wellenlängenspektrum erfasst wird.
+
+\section{Methodisches Vorgehen}
+
+Die methodische Herangehensweise dieser Masterarbeit gliedert sich in zwei aufeinander aufbauende Hauptphasen: die Neuentwicklung der Aleksameter-Software sowie die wissenschaftliche Untersuchung des Einflusses von Wellenlängenbegrenzungen auf die Farbgenauigkeit.
+
+\subsection{Software-Entwicklungsmethodik}
+\subsubsection{Systematische Analyse und Neukonzeption}
+
+Die Entwicklung der neuen Software folgt einem systematischen Ansatz, der sich in vier Kernphasen unterteilt, wie in Abbildung~\ref{Software_Method} dargestellt:
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=15cm]{./figures/Software_Method.png}
+    	\caption{Systematischer Ansatz der Software-Entwicklungsmethodik in vier Kernphasen}
+    	\label{Software_Method}
+    \end{figure>
+    
+\textbf{Phase 1: Kalibrierung (optional)}\\
+Die Kalibrierungsphase ist je nach Anwendungsmodus flexibel gestaltet. Das System unterstützt zwei verschiedene Betriebsmodus:
+
+\begin{itemize}
+    \item \textbf{Aleksameter-Modus}: Erfordert eine vollständige Kalibrierungssequenz mit Weiß- und Schwarzreferenzmessungen ($\phi_{e,\lambda,w}$ und $\phi_{e,\lambda,s}$).
+    
+    \item \textbf{Generic-Modus}: Arbeitet direkt mit vorkalibriierten Reflexionsdaten und umgeht die Kalibrierungsphase vollständig. Dieser Modus eignet sich für standardisierte Messdaten oder bereits prozessierte Spektraldaten.
+\end{itemize}
+
+\textbf{Phase 2: Datenauswahl und Import}\\
+Die Datenimportphase implementiert eine robuste CSV-basierte Datenverarbeitung mit automatischer Formatvalidierung. Das System erkennt verschiedene CSV-Varianten und führt eine Echtzeitvorschau der spektralen Daten durch, um die Datenintegrität vor der eigentlichen Verarbeitung zu gewährleisten.
+
+\textbf{Phase 3: Berechnung von Reflexions- und Farbwerten}\\
+Diese Phase stellt den algorithmischen Kern der Anwendung dar. Die spektralen Reflexionsdaten $R(\lambda)$ werden mittels hochpräziser Interpolationsverfahren (\texttt{scipy.interpolate}) verarbeitet und anschließend in CIE XYZ-Farbwerte konvertiert. Die Implementierung gewährleistet MATLAB-kompatible Berechnungsgenauigkeit bei gleichzeitiger Nutzung der Python-Wissenschaftsumgebung.
+
+\textbf{Phase 4: Visualisierung und Export}\\
+Die finale Phase umfasst die Echtzeitvisualisierung in einem Drei-Panel-Layout sowie den Export in multiple Datenformate (Excel, CSV, JSON, TXT) und hochauflösende Grafiken (PNG, JPEG, TIFF, PDF).
+
+\subsubsection{Software-Entwicklungs- und Deployment-Prozess}
+
+Der gesamte Entwicklungszyklus der Aleksameter-Software folgt einem strukturierten vierstufigen Ansatz, wie in Abbildung \ref{Depolyment_Method} dargestellt:
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=15cm]{./figures/Depolyment_Method.png}
+    	\caption{Vierstufiger Software-Entwicklungs- und Deployment-Prozess der Aleksameter-Anwendung}
+    	\label{Depolyment_Method}
+    \end{figure>
+    
+\textbf{Definition der Funktionen}: Ausgehend von der Analyse der ursprünglichen MATLAB-Implementierung werden die Kernanforderungen definiert und mittels Balsamiq Wireframes prototypisiert. Diese Phase umfasst die Spezifikation der Benutzeranforderungen sowie die Architekturentscheidungen für die Neuentwicklung.
+
+\textbf{GUI-Entwicklung}: Die Benutzeroberfläche wird mit Visual Studio Code und Qt Designer entwickelt. Dabei wird eine moderne, plattformübergreifende Benutzerführung implementiert, die sowohl die wissenschaftliche Präzision als auch die Benutzerfreundlichkeit optimiert.
+
+\textbf{Backend-Entwicklung}: Die Kernalgorithmen werden in Python unter Verwendung der wissenschaftlichen Bibliotheken NumPy, SciPy und der Qt-Integration über PySide6 implementiert. Diese Phase gewährleistet die algorithmische Präzision und Performanz des Systems.
+
+\textbf{Bereitstellung}: Die finale Anwendung wird mittels PyInstaller für verschiedene Betriebssysteme paketiert, wodurch eine plattformübergreifende Deployment-Strategie realisiert wird.
+
+\subsection{Wissenschaftliche Untersuchungsmethodik}
+
+Die wissenschaftliche Analyse des Einflusses von Wellenlängenbegrenzungen folgt einem systematischen vierstufigen Forschungsansatz, wie in Abbildung~\ref{Forschungs_Method} veranschaulicht:
+
+\begin{figure}[hbpt]
+    	\centering
+    	\includegraphics[width=14.5cm]{./figures/Forschungs_Method.png}
+    	\caption{Systematischer vierstufiger Forschungsansatz zur Untersuchung der Wellenlängenbegrenzungen}
+    	\label{Forschungs_Method}
+    \end{figure}
+    
+\textbf{Spektraldaten aufnehmen}: Verwendung standardisierter Reflexionsspektren sowie realer Oberflächenmessungen zur Gewährleistung repräsentativer und reproduzierbarer Ausgangsdaten. Die Datenakquisition umfasst sowohl Laborstandards als auch praktische Anwendungsfälle.
+
+\textbf{Berechnung der Werte}: Systematische Berechnung der Farbwerte für verschiedene spektrale Bereiche unter Verwendung der entwickelten Software. Dabei werden identische Algorithmen und Berechnungsparameter angewendet, um die Vergleichbarkeit der Ergebnisse zu gewährleisten.
+
+\textbf{Fehleranalyse}: Quantitative Bewertung der durch Wellenlängenbegrenzungen induzierten Farbdifferenzen mittels etablierter Farbabstandsformeln. Diese Phase umfasst sowohl statistische Analysen als auch die Identifikation kritischer Spektralbereiche.
+
+\textbf{Korrektur}: Entwicklung und Validierung von Korrekturstrategien zur Minimierung wellenlängenbedingter Fehler. Dies beinhaltet sowohl algorithmische Anpassungen als auch Empfehlungen für optimale Messbereichsdefinitionen.
+
+Diese methodische Herangehensweise gewährleistet sowohl die technische Exzellenz der Software-Neuentwicklung als auch die wissenschaftliche Rigorosität der Wellenlängenbereich-Untersuchung, wodurch sowohl praktische als auch theoretische Beiträge zur Spektralmesstechnik geleistet werden.
+

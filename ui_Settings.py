@@ -134,7 +134,7 @@ class Ui_Dialog_settings(object):
         self.formLayout_Reflectance.setVerticalSpacing(20)
         self.formLayout_Reflectance.setObjectName("formLayout_Reflectance")
         
-        # 添加DPI选择框（放在Width上面）
+        # Add DPI selection box (above Width)
         self.label_Plot_Reflectance_DPI = QtWidgets.QLabel(parent=self.widget_reflectance)
         self.label_Plot_Reflectance_DPI.setMinimumSize(QtCore.QSize(80, 0))
         self.label_Plot_Reflectance_DPI.setObjectName("label_Plot_Reflectance_DPI")
@@ -168,7 +168,7 @@ class Ui_Dialog_settings(object):
         self.lineEdit_Plot_Reflectance_Height.setObjectName("lineEdit_Plot_Reflectance_Height")
         self.formLayout_Reflectance.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lineEdit_Plot_Reflectance_Height)
         
-        # 添加字体大小标签和选项 - 移到Insert Title前面
+        # Add font size label and options - moved before Insert Title
         self.label_Plot_Reflectance_Font_Size = QtWidgets.QLabel(parent=self.widget_reflectance)
         self.label_Plot_Reflectance_Font_Size.setMinimumSize(QtCore.QSize(80, 0))
         self.label_Plot_Reflectance_Font_Size.setObjectName("label_Plot_Reflectance_Font_Size")
@@ -233,7 +233,7 @@ class Ui_Dialog_settings(object):
         self.formLayout_CIExy.setVerticalSpacing(20)
         self.formLayout_CIExy.setObjectName("formLayout_CIExy")
         
-        # 添加DPI选择框（放在Width上面）
+        # Add DPI selection box (above Width)
         self.label_Plot_CIExy_DPI = QtWidgets.QLabel(parent=self.widget_ciexy)
         self.label_Plot_CIExy_DPI.setMinimumSize(QtCore.QSize(80, 0))
         self.label_Plot_CIExy_DPI.setObjectName("label_Plot_CIExy_DPI")
@@ -267,7 +267,7 @@ class Ui_Dialog_settings(object):
         self.lineEdit_Plot_CIExy_Height.setObjectName("lineEdit_Plot_CIExy_Height")
         self.formLayout_CIExy.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.lineEdit_Plot_CIExy_Height)
         
-        # 添加字体大小标签和选项 - 移到Insert Title前面
+        # Add font size label and options - moved before Insert Title
         self.label_Plot_CIExy_Font_Size = QtWidgets.QLabel(parent=self.widget_ciexy)
         self.label_Plot_CIExy_Font_Size.setMinimumSize(QtCore.QSize(80, 0))
         self.label_Plot_CIExy_Font_Size.setObjectName("label_Plot_CIExy_Font_Size")
@@ -389,7 +389,7 @@ class Ui_Dialog_settings(object):
         self.label_Plot_Reflectance.setText(_translate("Dialog_settings", "Reflectance Plot"))
         self.label_Plot_CIExy.setText(_translate("Dialog_settings", "CIExy Plot"))
         
-        # 添加DPI选择标签和选项
+        # Add DPI selection label and options
         self.label_Plot_Reflectance_DPI.setText(_translate("Dialog_settings", "DPI"))
         self.comboBox_Plot_Reflectance_DPI.setItemText(0, _translate("Dialog_settings", "150"))
         self.comboBox_Plot_Reflectance_DPI.setItemText(1, _translate("Dialog_settings", "300"))
@@ -406,7 +406,7 @@ class Ui_Dialog_settings(object):
         self.comboBox_Plot_Reflectance_Insert_Title.setItemText(0, _translate("Dialog_settings", "No"))
         self.comboBox_Plot_Reflectance_Insert_Title.setItemText(1, _translate("Dialog_settings", "Yes"))
         
-        # 添加字体大小标签和选项
+        # Add font size label and options
         self.label_Plot_Reflectance_Font_Size.setText(_translate("Dialog_settings", "Font Size"))
         self.comboBox_Plot_Reflectance_Font_Size.setItemText(0, _translate("Dialog_settings", "S"))
         self.comboBox_Plot_Reflectance_Font_Size.setItemText(1, _translate("Dialog_settings", "M"))
@@ -422,7 +422,7 @@ class Ui_Dialog_settings(object):
         self.comboBox_Plot_CIExy_Insert_Title.setItemText(0, _translate("Dialog_settings", "No"))
         self.comboBox_Plot_CIExy_Insert_Title.setItemText(1, _translate("Dialog_settings", "Yes"))
         
-        # 添加CIE图表字体大小标签和选项
+        # Add CIE chart font size label and options
         self.label_Plot_CIExy_Font_Size.setText(_translate("Dialog_settings", "Font Size"))
         self.comboBox_Plot_CIExy_Font_Size.setItemText(0, _translate("Dialog_settings", "S"))
         self.comboBox_Plot_CIExy_Font_Size.setItemText(1, _translate("Dialog_settings", "M"))

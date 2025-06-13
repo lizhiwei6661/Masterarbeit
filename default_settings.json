@@ -1,0 +1,33 @@
+{
+    "general": {
+        "rho_lambda": 0.989,
+        "gamut": "None",
+        "illuminant": "D65",
+        "rgb_values": "0 ... 1"
+    },
+    "plot": {
+        "reflectance_dpi": 300,
+        "cie_dpi": 300,
+        "reflectance_width": 1600,
+        "reflectance_height": 800,
+        "cie_width": 900,
+        "cie_height": 900,
+        "reflectance_title": "Reflectance Spectra of Measured Samples",
+        "cie_title": "CIE Chromaticity Diagram",
+        "reflectance_show_title": true,
+        "cie_show_title": true,
+        "reflectance_show_legend": true,
+        "cie_show_legend": true,
+        "reflectance_color": "#1f77b4",
+        "reflectance_font_size": "Small",
+        "cie_font_size": "Small"
+    },
+    "export": {
+        "separator": "Point",
+        "copy_header": "Yes",
+        "default_directory": "~",
+        "default_format": "xlsx",
+        "include_header": true,
+        "decimal_places": 6
+    }
+} 

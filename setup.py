@@ -14,6 +14,7 @@ base_files = [
     'ui_plot_dialog.py',
     'ui_export_dialog.py',
     'app_settings.json',
+    'Aleksameter_User_Guide.html',
 ]
 
 # 过滤出实际存在的文件
@@ -131,7 +132,7 @@ OPTIONS = {
     'optimize': 2,  # 应用Python优化器
     'compressed': True,  # 压缩字节码
     'strip': True,  # 删除符号表
-    'arch': 'universal2',  # 编译为通用二进制(同时支持Intel和Apple Silicon)
+    'arch': 'universal2',  # 编译为通用二进制(同时支持IntelandApple Silicon)
     'site_packages': True,  # 包含site-packages
     'no_chdir': True,  # 不切换到资源目录
     'semi_standalone': False,  # 不使用系统Python

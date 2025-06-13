@@ -1,0 +1,295 @@
+Zusammenfassung der linearen Extrapolationsanalyse
+=================================================
+
+Urspruenglicher Wellenlaengenbereich: 380-780nm
+Verkuerzter Wellenlaengenbereich: 400-750nm
+Extrapolationsmethode: Lineare Randextrapolation
+
+Extrapolationsstrategie:
+-------------------------
+- Unterer Bereich (380-400nm): Lineare Extrapolation basierend auf 400-405nm
+- Oberer Bereich (750-780nm): Lineare Extrapolation basierend auf 745-750nm
+
+Statistische Auswertung:
+-------------------------
+Analysierte Proben: 52
+Durchschnittliches ΔE (verkuerzt vs original): 0.079778
+Durchschnittliches ΔE (extrapoliert vs original): 0.002692
+Durchschnittliche Verbesserung: 0.077086
+
+Erfolgsrate der Extrapolation:
+-------------------------------
+Verbesserte Proben: 52 (100.0%)
+Verschlechterte Proben: 0 (0.0%)
+Unveraenderte Proben: 0 (0.0%)
+
+Bewertung der Extrapolationsmethode:
+------------------------------------
+✓ Die lineare Extrapolation fuehrt im Durchschnitt zu einer Verbesserung der Farbgenauigkeit.
+✓ Das durchschnittliche ΔE wird um 0.077086 reduziert.
+
+Einzelne Probenergebnisse:
+---------------------------
+✓ S4:
+   ΔE verkuerzt: 0.144207
+   ΔE extrapoliert: 0.000107
+   Verbesserung: 0.144100
+
+✓ S5:
+   ΔE verkuerzt: 0.135581
+   ΔE extrapoliert: 0.000014
+   Verbesserung: 0.135567
+
+✓ r3s3:
+   ΔE verkuerzt: 0.140564
+   ΔE extrapoliert: 0.006592
+   Verbesserung: 0.133971
+
+✓ S3:
+   ΔE verkuerzt: 0.129761
+   ΔE extrapoliert: 0.000257
+   Verbesserung: 0.129505
+
+✓ r2s6:
+   ΔE verkuerzt: 0.113487
+   ΔE extrapoliert: 0.003186
+   Verbesserung: 0.110300
+
+✓ r3s5:
+   ΔE verkuerzt: 0.103903
+   ΔE extrapoliert: 0.002130
+   Verbesserung: 0.101773
+
+✓ r2s2:
+   ΔE verkuerzt: 0.102062
+   ΔE extrapoliert: 0.002644
+   Verbesserung: 0.099418
+
+✓ WC12 / WF12:
+   ΔE verkuerzt: 0.099943
+   ΔE extrapoliert: 0.002010
+   Verbesserung: 0.097933
+
+✓ r4s2:
+   ΔE verkuerzt: 0.098373
+   ΔE extrapoliert: 0.000646
+   Verbesserung: 0.097728
+
+✓ r4s4:
+   ΔE verkuerzt: 0.092740
+   ΔE extrapoliert: 0.002780
+   Verbesserung: 0.089960
+
+✓ r3s4:
+   ΔE verkuerzt: 0.096307
+   ΔE extrapoliert: 0.006940
+   Verbesserung: 0.089367
+
+✓ r1s3:
+   ΔE verkuerzt: 0.091838
+   ΔE extrapoliert: 0.004743
+   Verbesserung: 0.087094
+
+✓ r1s4:
+   ΔE verkuerzt: 0.089525
+   ΔE extrapoliert: 0.002670
+   Verbesserung: 0.086855
+
+✓ WC1 / WF1:
+   ΔE verkuerzt: 0.084802
+   ΔE extrapoliert: 0.000208
+   Verbesserung: 0.084594
+
+✓ r1s2:
+   ΔE verkuerzt: 0.085826
+   ΔE extrapoliert: 0.002270
+   Verbesserung: 0.083557
+
+✓ r2s1:
+   ΔE verkuerzt: 0.082731
+   ΔE extrapoliert: 0.001347
+   Verbesserung: 0.081384
+
+✓ r4s5:
+   ΔE verkuerzt: 0.085464
+   ΔE extrapoliert: 0.004833
+   Verbesserung: 0.080630
+
+✓ WC5 / WF5:
+   ΔE verkuerzt: 0.082853
+   ΔE extrapoliert: 0.002396
+   Verbesserung: 0.080457
+
+✓ WC10 / WF10:
+   ΔE verkuerzt: 0.083709
+   ΔE extrapoliert: 0.004264
+   Verbesserung: 0.079446
+
+✓ WC11 / WF11:
+   ΔE verkuerzt: 0.083126
+   ΔE extrapoliert: 0.003991
+   Verbesserung: 0.079136
+
+✓ WC4 / WF4:
+   ΔE verkuerzt: 0.082777
+   ΔE extrapoliert: 0.003704
+   Verbesserung: 0.079073
+
+✓ WC8 / WF8:
+   ΔE verkuerzt: 0.080530
+   ΔE extrapoliert: 0.001469
+   Verbesserung: 0.079062
+
+✓ r4s1:
+   ΔE verkuerzt: 0.081657
+   ΔE extrapoliert: 0.003092
+   Verbesserung: 0.078565
+
+✓ r3s6:
+   ΔE verkuerzt: 0.077096
+   ΔE extrapoliert: 0.001312
+   Verbesserung: 0.075784
+
+✓ WC7 / WF7:
+   ΔE verkuerzt: 0.078910
+   ΔE extrapoliert: 0.003197
+   Verbesserung: 0.075713
+
+✓ r4s6:
+   ΔE verkuerzt: 0.075475
+   ΔE extrapoliert: 0.000947
+   Verbesserung: 0.074528
+
+✓ WC6 / WF6 :
+   ΔE verkuerzt: 0.079320
+   ΔE extrapoliert: 0.005547
+   Verbesserung: 0.073772
+
+✓ r1s5:
+   ΔE verkuerzt: 0.078872
+   ΔE extrapoliert: 0.005260
+   Verbesserung: 0.073612
+
+✓ S1:
+   ΔE verkuerzt: 0.073594
+   ΔE extrapoliert: 0.000872
+   Verbesserung: 0.072722
+
+✓ S2:
+   ΔE verkuerzt: 0.073988
+   ΔE extrapoliert: 0.001406
+   Verbesserung: 0.072582
+
+✓ r1s1:
+   ΔE verkuerzt: 0.070731
+   ΔE extrapoliert: 0.000075
+   Verbesserung: 0.070656
+
+✓ WC2 / WF2:
+   ΔE verkuerzt: 0.076698
+   ΔE extrapoliert: 0.006184
+   Verbesserung: 0.070514
+
+✓ WC3 / WF3:
+   ΔE verkuerzt: 0.076753
+   ΔE extrapoliert: 0.006875
+   Verbesserung: 0.069879
+
+✓ r3s1:
+   ΔE verkuerzt: 0.069872
+   ΔE extrapoliert: 0.000969
+   Verbesserung: 0.068903
+
+✓ r2s4:
+   ΔE verkuerzt: 0.067083
+   ΔE extrapoliert: 0.000014
+   Verbesserung: 0.067070
+
+✓ r4s3:
+   ΔE verkuerzt: 0.068119
+   ΔE extrapoliert: 0.001097
+   Verbesserung: 0.067022
+
+✓ WC9 / WF9:
+   ΔE verkuerzt: 0.074463
+   ΔE extrapoliert: 0.008167
+   Verbesserung: 0.066296
+
+✓ HB1 / WF1:
+   ΔE verkuerzt: 0.067340
+   ΔE extrapoliert: 0.001113
+   Verbesserung: 0.066227
+
+✓ HB8 / WF8:
+   ΔE verkuerzt: 0.065890
+   ΔE extrapoliert: 0.000352
+   Verbesserung: 0.065538
+
+✓ HB3 / WF3:
+   ΔE verkuerzt: 0.066251
+   ΔE extrapoliert: 0.000727
+   Verbesserung: 0.065524
+
+✓ r2s5:
+   ΔE verkuerzt: 0.062901
+   ΔE extrapoliert: 0.000527
+   Verbesserung: 0.062373
+
+✓ r3s2:
+   ΔE verkuerzt: 0.059451
+   ΔE extrapoliert: 0.000981
+   Verbesserung: 0.058470
+
+✓ r1s6:
+   ΔE verkuerzt: 0.063626
+   ΔE extrapoliert: 0.009927
+   Verbesserung: 0.053700
+
+✓ HB4 / WF4.1:
+   ΔE verkuerzt: 0.053501
+   ΔE extrapoliert: 0.000075
+   Verbesserung: 0.053426
+
+✓ HB4 / WF4:
+   ΔE verkuerzt: 0.054808
+   ΔE extrapoliert: 0.001458
+   Verbesserung: 0.053350
+
+✓ HB6 / WF6:
+   ΔE verkuerzt: 0.055002
+   ΔE extrapoliert: 0.002155
+   Verbesserung: 0.052846
+
+✓ HB9 / WF9:
+   ΔE verkuerzt: 0.049818
+   ΔE extrapoliert: 0.000220
+   Verbesserung: 0.049599
+
+✓ HB2 / WF2:
+   ΔE verkuerzt: 0.051747
+   ΔE extrapoliert: 0.002642
+   Verbesserung: 0.049105
+
+✓ L1:
+   ΔE verkuerzt: 0.056479
+   ΔE extrapoliert: 0.011179
+   Verbesserung: 0.045300
+
+✓ HB5 / WF5:
+   ΔE verkuerzt: 0.044031
+   ΔE extrapoliert: 0.001856
+   Verbesserung: 0.042175
+
+✓ r2s3:
+   ΔE verkuerzt: 0.042400
+   ΔE extrapoliert: 0.000389
+   Verbesserung: 0.042011
+
+✓ HB7 / WF7:
+   ΔE verkuerzt: 0.042494
+   ΔE extrapoliert: 0.002168
+   Verbesserung: 0.040326
+
+Empfehlungen:
+-------------
+Die lineare Extrapolation zeigt signifikante Verbesserungen und kann fuer praktische Anwendungen empfohlen werden.

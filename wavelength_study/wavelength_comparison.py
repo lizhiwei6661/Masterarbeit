@@ -6,24 +6,29 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import rgb_to_hsv
 import csv
 
-# 添加主项目路径以导入ColorCalculator类
+# Deutsche Matplotlib-Schrifteinstellungen
+plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
+plt.rcParams['axes.unicode_minus'] = False
+plt.rcParams['font.size'] = 10
+
+# Hauptprojektpfad hinzufuegen um ColorCalculator-Klasse zu importieren
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from color_calculator import ColorCalculator
 
 def read_reflectance_data(file_path):
-    """读取Excel文件中的反射率数据"""
-    print(f"读取反射率数据: {file_path}")
+    """Liest Reflektanzdaten aus Excel-Datei"""
+    print(f"Lese Reflektanzdaten: {file_path}")
     try:
         df = pd.read_excel(file_path)
-        # 获取波长列(第一列)和样本数据
+        # Wellenlaenge-Spalte (erste Spalte) und Probendaten abrufen
         wavelengths = df.iloc[:, 0].values
         sample_names = df.columns[1:]
         
-        # 创建样本字典
+        # Proben-Woerterbuch erstellen
         samples = {}
         for name in sample_names:
             sample_data = df[name].values
-            # 过滤掉NaN值
+            # NaN-Werte herausfiltern
             valid_indices = ~np.isnan(sample_data)
             if np.any(valid_indices):
                 samples[name] = {
@@ -31,32 +36,32 @@ def read_reflectance_data(file_path):
                     'reflectance': sample_data[valid_indices]
                 }
             
-        print(f"成功读取 {len(samples)} 个样本")
+        print(f"Erfolgreich {len(samples)} Proben gelesen")
         return samples
     except Exception as e:
-        print(f"读取数据时出错: {str(e)}")
+        print(f"Fehler beim Lesen der Daten: {str(e)}")
         return {}
 
 def xyz_to_lab(xyz, white_ref=None):
     """
-    Convert XYZ to CIE Lab color space
+    Konvertiert XYZ zu CIE Lab Farbraum
     
-    Parameters:
-        xyz: XYZ color values [X, Y, Z]
-        white_ref: White reference [Xw, Yw, Zw], if None D65 is used
+    Parameter:
+        xyz: XYZ Farbwerte [X, Y, Z]
+        white_ref: Weissreferenz [Xw, Yw, Zw], falls None wird D65 verwendet
     
-    Returns:
-        Lab color values [L*, a*, b*]
+    Rueckgabe:
+        Lab Farbwerte [L*, a*, b*]
     """
-    # Default white reference is D65
+    # Standard Weissreferenz ist D65
     if white_ref is None:
-        # D65 white reference values
+        # D65 Weissreferenzwerte
         white_ref = np.array([95.047, 100.0, 108.883])
     
-    # Normalize XYZ by white reference
+    # XYZ durch Weissreferenz normalisieren
     xyz_norm = xyz / white_ref
     
-    # Apply nonlinear transformation
+    # Nichtlineare Transformation anwenden
     mask = xyz_norm > 0.008856
     xyz_norm_pow = np.power(xyz_norm, 1/3.0)
     xyz_norm_trans = xyz_norm * 7.787 + 16/116.0
@@ -68,7 +73,7 @@ def xyz_to_lab(xyz, white_ref=None):
         else:
             xyz_f[i] = xyz_norm_trans[i]
     
-    # Calculate L*, a*, b*
+    # L*, a*, b* berechnen
     L = 116.0 * xyz_f[1] - 16.0
     a = 500.0 * (xyz_f[0] - xyz_f[1])
     b = 200.0 * (xyz_f[1] - xyz_f[2])
@@ -77,84 +82,84 @@ def xyz_to_lab(xyz, white_ref=None):
 
 def calculate_cie76_delta_e(lab1, lab2):
     """
-    Calculate CIE76 color difference (Delta E)
+    Berechnet CIE76 Farbunterschied (Delta E)
     
-    Parameters:
-        lab1: First Lab color [L1, a1, b1]
-        lab2: Second Lab color [L2, a2, b2]
+    Parameter:
+        lab1: Erste Lab Farbe [L1, a1, b1]
+        lab2: Zweite Lab Farbe [L2, a2, b2]
     
-    Returns:
-        Delta E value
+    Rueckgabe:
+        Delta E Wert
     """
-    # Calculate squared differences
+    # Quadrierte Differenzen berechnen
     L_diff = (lab1[0] - lab2[0]) ** 2
     a_diff = (lab1[1] - lab2[1]) ** 2
     b_diff = (lab1[2] - lab2[2]) ** 2
     
-    # Calculate Delta E
+    # Delta E berechnen
     delta_e = np.sqrt(L_diff + a_diff + b_diff)
     
     return delta_e
 
 def compare_wavelength_ranges(samples, original_range=(380, 780), new_range=(400, 800)):
-    """比较不同波长范围的颜色计算结果"""
-    # 创建颜色计算器实例
+    """Vergleicht Farbberechnungsergebnisse verschiedener Wellenlaengenbereiche"""
+    # Farbrechner-Instanz erstellen
     cc = ColorCalculator()
     
-    # 设置默认光源为D65
+    # Standardlichtquelle auf D65 setzen
     cc.illuminant = 'D65'
     
     results = {}
     
     for name, sample in samples.items():
-        print(f"\n分析样本: {name}")
+        print(f"\nAnalysiere Probe: {name}")
         wavelengths = sample['wavelengths']
         reflectance = sample['reflectance']
         
-        # 检查波长范围是否满足要求
+        # Pruefen ob Wellenlaengenbereich den Anforderungen entspricht
         min_wl = np.min(wavelengths)
         max_wl = np.max(wavelengths)
-        print(f"样本波长范围: {min_wl}-{max_wl}nm")
+        print(f"Proben-Wellenlaengenbereich: {min_wl}-{max_wl}nm")
         
         if min_wl > original_range[0] or max_wl < original_range[1]:
-            print(f"警告: 样本波长范围 ({min_wl}-{max_wl}nm) 不满足原始波长范围要求 ({original_range[0]}-{original_range[1]}nm)")
+            print(f"Warnung: Proben-Wellenlaengenbereich ({min_wl}-{max_wl}nm) erfuellt nicht die Anforderungen des urspruenglichen Wellenlaengenbereichs ({original_range[0]}-{original_range[1]}nm)")
             continue
             
-        # 1. 计算原始波长范围的颜色
-        # 提取原始波长范围内的数据
+        # 1. Berechnung der Farben fuer urspruenglichen Wellenlaengenbereich
+        # Daten des urspruenglichen Wellenlaengenbereichs extrahieren
         original_mask = (wavelengths >= original_range[0]) & (wavelengths <= original_range[1])
         original_wavelengths = wavelengths[original_mask]
         original_reflectance = reflectance[original_mask]
         
         if len(original_wavelengths) < 10:
-            print(f"警告: 原始波长范围内的数据点太少 ({len(original_wavelengths)})")
+            print(f"Warnung: Zu wenige Datenpunkte im urspruenglichen Wellenlaengenbereich ({len(original_wavelengths)})")
             continue
             
-        # 计算原始波长范围的颜色值
+        # Farbwerte fuer urspruenglichen Wellenlaengenbereich berechnen
         original_results = cc.process_measurement(original_reflectance, original_wavelengths)
         
-        # 2. 计算新波长范围的颜色
-        # 提取新波长范围内的数据
+        # 2. Berechnung der Farben fuer neuen Wellenlaengenbereich
+        # Daten des neuen Wellenlaengenbereichs extrahieren
         new_mask = (wavelengths >= new_range[0]) & (wavelengths <= new_range[1])
         new_wavelengths = wavelengths[new_mask]
         new_reflectance = reflectance[new_mask]
         
         if len(new_wavelengths) < 10:
-            print(f"警告: 新波长范围内的数据点太少 ({len(new_wavelengths)})")
+            print(f"Warnung: Zu wenige Datenpunkte im neuen Wellenlaengenbereich ({len(new_wavelengths)})")
             continue
             
-        # 计算新波长范围的颜色值
+        # Farbwerte fuer neuen Wellenlaengenbereich berechnen
         new_results = cc.process_measurement(new_reflectance, new_wavelengths)
         
-        # 3. 计算CIE Lab颜色空间值和色差
-        # 转换XYZ到Lab
+        # 3. Berechnung der CIE Lab Farbwerte und Farbdifferenz
+        # XYZ zu Lab konvertieren
         original_lab = xyz_to_lab(original_results['xyz'])
         new_lab = xyz_to_lab(new_results['xyz'])
         
-        # 计算CIE76色差
+        # CIE76 Farbdifferenz berechnen
         delta_e = calculate_cie76_delta_e(original_lab, new_lab)
         
-        # 保存结果
+        # Ergebnisse speichern
         results[name] = {
             'original': original_results,
             'new': new_results,
@@ -163,306 +168,224 @@ def compare_wavelength_ranges(samples, original_range=(380, 780), new_range=(400
             'delta_e': delta_e
         }
         
-        # 打印关键结果比较
-        print(f"原始波长范围 ({original_range[0]}-{original_range[1]}nm):")
+        # Wichtige Ergebnisse ausgeben
+        print(f"Urspruenglicher Wellenlaengenbereich ({original_range[0]}-{original_range[1]}nm):")
         print(f"  XYZ: ({original_results['xyz'][0]:.4f}, {original_results['xyz'][1]:.4f}, {original_results['xyz'][2]:.4f})")
         print(f"  xy: ({original_results['xy'][0]:.4f}, {original_results['xy'][1]:.4f})")
         print(f"  sRGB: ({original_results['rgb_gamma'][0]:.4f}, {original_results['rgb_gamma'][1]:.4f}, {original_results['rgb_gamma'][2]:.4f})")
         print(f"  Hex: {original_results['hex_color']}")
         print(f"  Lab: ({original_lab[0]:.4f}, {original_lab[1]:.4f}, {original_lab[2]:.4f})")
         
-        print(f"新波长范围 ({new_range[0]}-{new_range[1]}nm):")
+        print(f"Neuer Wellenlaengenbereich ({new_range[0]}-{new_range[1]}nm):")
         print(f"  XYZ: ({new_results['xyz'][0]:.4f}, {new_results['xyz'][1]:.4f}, {new_results['xyz'][2]:.4f})")
         print(f"  xy: ({new_results['xy'][0]:.4f}, {new_results['xy'][1]:.4f})")
         print(f"  sRGB: ({new_results['rgb_gamma'][0]:.4f}, {new_results['rgb_gamma'][1]:.4f}, {new_results['rgb_gamma'][2]:.4f})")
         print(f"  Hex: {new_results['hex_color']}")
         print(f"  Lab: ({new_lab[0]:.4f}, {new_lab[1]:.4f}, {new_lab[2]:.4f})")
         
-        # 计算差异
+        # Differenzen berechnen
         xyz_diff = np.abs(original_results['xyz'] - new_results['xyz'])
         xy_diff = np.abs(original_results['xy'] - new_results['xy'])
         rgb_diff = np.abs(original_results['rgb_gamma'] - new_results['rgb_gamma'])
         lab_diff = np.abs(original_lab - new_lab)
         
-        print("差异分析:")
-        print(f"  XYZ差异: ({xyz_diff[0]:.4f}, {xyz_diff[1]:.4f}, {xyz_diff[2]:.4f})")
-        print(f"  xy差异: ({xy_diff[0]:.4f}, {xy_diff[1]:.4f})")
-        print(f"  sRGB差异: ({rgb_diff[0]:.4f}, {rgb_diff[1]:.4f}, {rgb_diff[2]:.4f})")
-        print(f"  Lab差异: ({lab_diff[0]:.4f}, {lab_diff[1]:.4f}, {lab_diff[2]:.4f})")
-        print(f"  CIE76色差 (ΔE): {delta_e:.4f}")
+        print("Differenzanalyse:")
+        print(f"  XYZ-Differenz: ({xyz_diff[0]:.4f}, {xyz_diff[1]:.4f}, {xyz_diff[2]:.4f})")
+        print(f"  xy-Differenz: ({xy_diff[0]:.4f}, {xy_diff[1]:.4f})")
+        print(f"  sRGB-Differenz: ({rgb_diff[0]:.4f}, {rgb_diff[1]:.4f}, {rgb_diff[2]:.4f})")
+        print(f"  Lab-Differenz: ({lab_diff[0]:.4f}, {lab_diff[1]:.4f}, {lab_diff[2]:.4f})")
+        print(f"  CIE76 Farbdifferenz (ΔE): {delta_e:.4f}")
         
-        # 计算相对误差百分比
+        # Relative Fehlerprozentsaetze berechnen
         xyz_rel_diff = 100 * xyz_diff / (np.abs(original_results['xyz']) + 1e-10)
         xy_rel_diff = 100 * xy_diff / (np.abs(original_results['xy']) + 1e-10)
         rgb_rel_diff = 100 * rgb_diff / (np.abs(original_results['rgb_gamma']) + 1e-10)
         
-        print("相对误差百分比:")
-        print(f"  XYZ相对误差: ({xyz_rel_diff[0]:.2f}%, {xyz_rel_diff[1]:.2f}%, {xyz_rel_diff[2]:.2f}%)")
-        print(f"  xy相对误差: ({xy_rel_diff[0]:.2f}%, {xy_rel_diff[1]:.2f}%)")
-        print(f"  sRGB相对误差: ({rgb_rel_diff[0]:.2f}%, {rgb_rel_diff[1]:.2f}%, {rgb_rel_diff[2]:.2f}%)")
+        print("Relative Fehlerprozentsaetze:")
+        print(f"  XYZ relativer Fehler: ({xyz_rel_diff[0]:.2f}%, {xyz_rel_diff[1]:.2f}%, {xyz_rel_diff[2]:.2f}%)")
+        print(f"  xy relativer Fehler: ({xy_rel_diff[0]:.2f}%, {xy_rel_diff[1]:.2f}%)")
+        print(f"  sRGB relativer Fehler: ({rgb_rel_diff[0]:.2f}%, {rgb_rel_diff[1]:.2f}%, {rgb_rel_diff[2]:.2f}%)")
         
-        # 计算颜色感知差异
+        # HSV Wahrnehmungsunterschiede berechnen
         original_hsv = rgb_to_hsv(np.clip(original_results['rgb_gamma'], 0, 1))
         new_hsv = rgb_to_hsv(np.clip(new_results['rgb_gamma'], 0, 1))
         hsv_diff = np.abs(original_hsv - new_hsv)
-        # 色调差异需要特殊处理，因为它是循环的
+        # Farbton-Differenz benoetigt spezielle Behandlung da zyklisch
         if hsv_diff[0] > 0.5:
             hsv_diff[0] = 1 - hsv_diff[0]
         
-        print("HSV感知差异:")
-        print(f"  色调差异: {hsv_diff[0]:.4f} (×360° = {hsv_diff[0]*360:.1f}°)")
-        print(f"  饱和度差异: {hsv_diff[1]:.4f}")
-        print(f"  明度差异: {hsv_diff[2]:.4f}")
+        print("HSV Wahrnehmungsunterschiede:")
+        print(f"  Farbton-Differenz: {hsv_diff[0]:.4f} (×360° = {hsv_diff[0]*360:.1f}°)")
+        print(f"  Saettigung-Differenz: {hsv_diff[1]:.4f}")
+        print(f"  Helligkeit-Differenz: {hsv_diff[2]:.4f}")
     
     return results
 
-def export_color_difference_table(results, output_dir, original_range=(380, 780), new_range=(400, 800)):
+def export_simplified_error_table(results, output_dir, original_range=(380, 780), new_range=(400, 750)):
     """
-    Export color difference data to CSV table
+    Exportiert vereinfachte Fehler-Tabelle mit nur Farbfehlern und Delta E Werten
     
-    Parameters:
-        results: Comparison results dictionary
-        output_dir: Directory to save the CSV file
-        original_range: Original wavelength range
-        new_range: New wavelength range
+    Parameter:
+        results: Vergleichsergebnis-Woerterbuch
+        output_dir: Verzeichnis zum Speichern der CSV-Datei
+        original_range: Urspruenglicher Wellenlaengenbereich
+        new_range: Neuer Wellenlaengenbereich
     """
     if not results:
-        print("No results available for export")
+        print("Keine Ergebnisse fuer den Export verfuegbar")
         return
     
-    csv_path = os.path.join(output_dir, 'color_difference_table.csv')
+    # CSV Datei erstellen
+    csv_filename = os.path.join(output_dir, 'farbfehler_vereinfacht.csv')
     
-    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-        csvwriter = csv.writer(csvfile)
+    with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
         
-        # Write header
-        csvwriter.writerow([
-            'Sample Name',
-            'Original XYZ (X)', 'Original XYZ (Y)', 'Original XYZ (Z)',
-            'New XYZ (X)', 'New XYZ (Y)', 'New XYZ (Z)',
-            'XYZ diff (X)', 'XYZ diff (Y)', 'XYZ diff (Z)',
-            'XYZ % diff (X)', 'XYZ % diff (Y)', 'XYZ % diff (Z)',
-            'Original xy (x)', 'Original xy (y)',
-            'New xy (x)', 'New xy (y)',
-            'xy diff (x)', 'xy diff (y)',
-            'xy % diff (x)', 'xy % diff (y)',
-            'Original sRGB (R)', 'Original sRGB (G)', 'Original sRGB (B)',
-            'New sRGB (R)', 'New sRGB (G)', 'New sRGB (B)',
-            'sRGB diff (R)', 'sRGB diff (G)', 'sRGB diff (B)',
-            'sRGB % diff (R)', 'sRGB % diff (G)', 'sRGB % diff (B)',
-            'Original Lab (L*)', 'Original Lab (a*)', 'Original Lab (b*)',
-            'New Lab (L*)', 'New Lab (a*)', 'New Lab (b*)',
-            'Lab diff (L*)', 'Lab diff (a*)', 'Lab diff (b*)',
+        # Deutsche Spaltenueberschriften
+        header = [
+            'Probenname',
+            'XYZ Diff (X)', 'XYZ Diff (Y)', 'XYZ Diff (Z)',
+            'XYZ % Diff (X)', 'XYZ % Diff (Y)', 'XYZ % Diff (Z)',
+            'xy Diff (x)', 'xy Diff (y)',
+            'xy % Diff (x)', 'xy % Diff (y)',
+            'sRGB Diff (R)', 'sRGB Diff (G)', 'sRGB Diff (B)',
+            'sRGB % Diff (R)', 'sRGB % Diff (G)', 'sRGB % Diff (B)',
+            'Lab Diff (L*)', 'Lab Diff (a*)', 'Lab Diff (b*)',
             'CIE76 ΔE',
-            'Original Hex', 'New Hex'
-        ])
+            'Urspruengliche Hex', 'Neue Hex'
+        ]
+        writer.writerow(header)
         
-        # Write data for each sample
+        # Daten fuer jede Probe schreiben
         for name, result in results.items():
             original_data = result['original']
             new_data = result['new']
             original_lab = result['original_lab']
             new_lab = result['new_lab']
             
-            # Calculate differences
+            # Differenzen berechnen
             xyz_diff = np.abs(original_data['xyz'] - new_data['xyz'])
             xy_diff = np.abs(original_data['xy'] - new_data['xy'])
             rgb_diff = np.abs(original_data['rgb_gamma'] - new_data['rgb_gamma'])
             lab_diff = np.abs(original_lab - new_lab)
             
-            # Calculate percentage differences
+            # Relative Differenzen berechnen
             xyz_rel_diff = 100 * xyz_diff / (np.abs(original_data['xyz']) + 1e-10)
             xy_rel_diff = 100 * xy_diff / (np.abs(original_data['xy']) + 1e-10)
             rgb_rel_diff = 100 * rgb_diff / (np.abs(original_data['rgb_gamma']) + 1e-10)
             
-            # Write row
-            csvwriter.writerow([
+            # Zeile schreiben
+            row = [
                 name,
-                f"{original_data['xyz'][0]:.6f}", f"{original_data['xyz'][1]:.6f}", f"{original_data['xyz'][2]:.6f}",
-                f"{new_data['xyz'][0]:.6f}", f"{new_data['xyz'][1]:.6f}", f"{new_data['xyz'][2]:.6f}",
                 f"{xyz_diff[0]:.6f}", f"{xyz_diff[1]:.6f}", f"{xyz_diff[2]:.6f}",
-                f"{xyz_rel_diff[0]:.6f}", f"{xyz_rel_diff[1]:.6f}", f"{xyz_rel_diff[2]:.6f}",
-                f"{original_data['xy'][0]:.6f}", f"{original_data['xy'][1]:.6f}",
-                f"{new_data['xy'][0]:.6f}", f"{new_data['xy'][1]:.6f}",
+                f"{xyz_rel_diff[0]:.2f}", f"{xyz_rel_diff[1]:.2f}", f"{xyz_rel_diff[2]:.2f}",
                 f"{xy_diff[0]:.6f}", f"{xy_diff[1]:.6f}",
-                f"{xy_rel_diff[0]:.6f}", f"{xy_rel_diff[1]:.6f}",
-                f"{original_data['rgb_gamma'][0]:.6f}", f"{original_data['rgb_gamma'][1]:.6f}", f"{original_data['rgb_gamma'][2]:.6f}",
-                f"{new_data['rgb_gamma'][0]:.6f}", f"{new_data['rgb_gamma'][1]:.6f}", f"{new_data['rgb_gamma'][2]:.6f}",
+                f"{xy_rel_diff[0]:.2f}", f"{xy_rel_diff[1]:.2f}",
                 f"{rgb_diff[0]:.6f}", f"{rgb_diff[1]:.6f}", f"{rgb_diff[2]:.6f}",
-                f"{rgb_rel_diff[0]:.6f}", f"{rgb_rel_diff[1]:.6f}", f"{rgb_rel_diff[2]:.6f}",
-                f"{original_lab[0]:.6f}", f"{original_lab[1]:.6f}", f"{original_lab[2]:.6f}",
-                f"{new_lab[0]:.6f}", f"{new_lab[1]:.6f}", f"{new_lab[2]:.6f}",
+                f"{rgb_rel_diff[0]:.2f}", f"{rgb_rel_diff[1]:.2f}", f"{rgb_rel_diff[2]:.2f}",
                 f"{lab_diff[0]:.6f}", f"{lab_diff[1]:.6f}", f"{lab_diff[2]:.6f}",
                 f"{result['delta_e']:.6f}",
                 original_data['hex_color'], new_data['hex_color']
-            ])
+            ]
+            writer.writerow(row)
     
-    print(f"Color difference table exported to: {csv_path}")
-    
-    # Also create an Excel version for better readability
+    # Versuchen Excel-Version zu erstellen
     try:
-        df = pd.read_csv(csv_path)
-        excel_path = os.path.join(output_dir, 'color_difference_table.xlsx')
-        df.to_excel(excel_path, index=False)
-        print(f"Color difference table also exported as Excel: {excel_path}")
+        import pandas as pd
+        df = pd.read_csv(csv_filename)
+        excel_filename = os.path.join(output_dir, 'farbfehler_vereinfacht.xlsx')
+        df.to_excel(excel_filename, index=False)
+        print(f"Vereinfachte Fehlertabelle exportiert: {csv_filename} und {excel_filename}")
     except Exception as e:
-        print(f"Failed to create Excel version: {str(e)}")
+        print(f"Vereinfachte Fehlertabelle als CSV exportiert: {csv_filename}")
+        print(f"Excel-Export fehlgeschlagen: {e}")
 
-def export_simplified_error_table(results, output_dir, original_range=(380, 780), new_range=(400, 800)):
+def plot_results(samples, results, original_range=(380, 780), new_range=(400, 750)):
     """
-    Export simplified color difference data to CSV and Excel
-    Only includes error metrics and Delta E values
+    Zeichnet Ergebnisdiagramme und exportiert Tabellen
     
-    Parameters:
-        results: Comparison results dictionary
-        output_dir: Directory to save the CSV file
-        original_range: Original wavelength range
-        new_range: New wavelength range
+    Parameter:
+        samples: Proben-Woerterbuch 
+        results: Vergleichsergebnis-Woerterbuch
+        original_range: Urspruenglicher Wellenlaengenbereich
+        new_range: Neuer Wellenlaengenbereich
     """
     if not results:
-        print("No results available for export")
+        print("Keine Ergebnisse fuer die Darstellung verfuegbar")
         return
     
-    csv_path = os.path.join(output_dir, 'color_error_simplified.csv')
-    
-    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        
-        # Write header
-        csvwriter.writerow([
-            'Sample Name',
-            'XYZ diff (X)', 'XYZ diff (Y)', 'XYZ diff (Z)',
-            'XYZ % diff (X)', 'XYZ % diff (Y)', 'XYZ % diff (Z)',
-            'xy diff (x)', 'xy diff (y)',
-            'xy % diff (x)', 'xy % diff (y)',
-            'sRGB diff (R)', 'sRGB diff (G)', 'sRGB diff (B)',
-            'sRGB % diff (R)', 'sRGB % diff (G)', 'sRGB % diff (B)',
-            'Lab diff (L*)', 'Lab diff (a*)', 'Lab diff (b*)',
-            'CIE76 ΔE',
-            'Original Hex', 'New Hex'
-        ])
-        
-        # Write data for each sample
-        for name, result in results.items():
-            original_data = result['original']
-            new_data = result['new']
-            original_lab = result['original_lab']
-            new_lab = result['new_lab']
-            
-            # Calculate differences
-            xyz_diff = np.abs(original_data['xyz'] - new_data['xyz'])
-            xy_diff = np.abs(original_data['xy'] - new_data['xy'])
-            rgb_diff = np.abs(original_data['rgb_gamma'] - new_data['rgb_gamma'])
-            lab_diff = np.abs(original_lab - new_lab)
-            
-            # Calculate percentage differences
-            xyz_rel_diff = 100 * xyz_diff / (np.abs(original_data['xyz']) + 1e-10)
-            xy_rel_diff = 100 * xy_diff / (np.abs(original_data['xy']) + 1e-10)
-            rgb_rel_diff = 100 * rgb_diff / (np.abs(original_data['rgb_gamma']) + 1e-10)
-            
-            # Write row
-            csvwriter.writerow([
-                name,
-                f"{xyz_diff[0]:.6f}", f"{xyz_diff[1]:.6f}", f"{xyz_diff[2]:.6f}",
-                f"{xyz_rel_diff[0]:.6f}", f"{xyz_rel_diff[1]:.6f}", f"{xyz_rel_diff[2]:.6f}",
-                f"{xy_diff[0]:.6f}", f"{xy_diff[1]:.6f}",
-                f"{xy_rel_diff[0]:.6f}", f"{xy_rel_diff[1]:.6f}",
-                f"{rgb_diff[0]:.6f}", f"{rgb_diff[1]:.6f}", f"{rgb_diff[2]:.6f}",
-                f"{rgb_rel_diff[0]:.6f}", f"{rgb_rel_diff[1]:.6f}", f"{rgb_rel_diff[2]:.6f}",
-                f"{lab_diff[0]:.6f}", f"{lab_diff[1]:.6f}", f"{lab_diff[2]:.6f}",
-                f"{result['delta_e']:.6f}",
-                original_data['hex_color'], new_data['hex_color']
-            ])
-    
-    print(f"Simplified color error table exported to: {csv_path}")
-    
-    # Also create an Excel version for better readability
-    try:
-        df = pd.read_csv(csv_path)
-        excel_path = os.path.join(output_dir, 'color_error_simplified.xlsx')
-        df.to_excel(excel_path, index=False)
-        print(f"Simplified color error table also exported as Excel: {excel_path}")
-    except Exception as e:
-        print(f"Failed to create Excel version: {str(e)}")
-
-def plot_results(samples, results, original_range=(380, 780), new_range=(400, 800)):
-    """绘制结果图表"""
-    if not results:
-        print("没有可用于绘图的结果")
-        return
-    
-    # 创建保存图表的目录
+    # Ausgabeverzeichnis erstellen
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "comparison_results")
     os.makedirs(output_dir, exist_ok=True)
     
-    # Export color difference tables
-    export_color_difference_table(results, output_dir, original_range, new_range)
+    # Vereinfachte Fehlertabelle exportieren
     export_simplified_error_table(results, output_dir, original_range, new_range)
     
     for name, result in results.items():
-        # 修复文件名，替换斜杠和空格为下划线
+        # Dateinamen bereinigen - Schraegstriche und Leerzeichen durch Unterstriche ersetzen
         safe_name = name.replace("/", "_").replace(" ", "_").strip()
         
-        # 1. 绘制反射率曲线比较
+        # 1. Reflektanzkurven-Vergleich zeichnen
         plt.figure(figsize=(12, 6))
         
         original_data = result['original']
         new_data = result['new']
         
-        # 绘制原始波长范围反射率
+        # Urspruenglichen Wellenlaengenbereich Reflektanz zeichnen
         plt.plot(original_data['wavelengths'], original_data['reflectance'], 
-                 'b-', linewidth=2, label=f'原始 ({original_range[0]}-{original_range[1]}nm)')
+                 'b-', linewidth=2, label=f'Urspruenglich ({original_range[0]}-{original_range[1]}nm)')
         
-        # 绘制新波长范围反射率
+        # Neuen Wellenlaengenbereich Reflektanz zeichnen
         plt.plot(new_data['wavelengths'], new_data['reflectance'], 
-                 'r--', linewidth=2, label=f'裁剪 ({new_range[0]}-{new_range[1]}nm)')
+                 'r--', linewidth=2, label=f'Verkuerzt ({new_range[0]}-{new_range[1]}nm)')
         
-        plt.xlabel('波长 (nm)')
-        plt.ylabel('反射率')
-        plt.title(f'样本 "{name}" 的反射率曲线比较')
+        plt.xlabel('Wellenlaenge (nm)')
+        plt.ylabel('Reflektanz')
+        plt.title(f'Probe "{name}" Reflektanzkurven-Vergleich')
         plt.grid(True, alpha=0.3)
         plt.legend()
         plt.tight_layout()
         
-        # 保存图表
-        plt.savefig(os.path.join(output_dir, f'{safe_name}_reflectance.png'), dpi=150)
+        # Diagramm speichern
+        plt.savefig(os.path.join(output_dir, f'{safe_name}_reflektanz.png'), dpi=150)
         plt.close()
         
-        # 2. 创建颜色比较图
+        # 2. Farbvergleichsdiagramm erstellen
         fig, ax = plt.subplots(1, 2, figsize=(8, 4))
         
-        # 原始波长范围的颜色
+        # Urspruenglicher Wellenlaengenbereich Farbe
         original_rgb = np.clip(original_data['rgb_gamma'], 0, 1)
         ax[0].add_patch(plt.Rectangle((0, 0), 1, 1, color=original_rgb))
-        ax[0].set_title(f'原始 ({original_range[0]}-{original_range[1]}nm)\n{original_data["hex_color"]}')
+        ax[0].set_title(f'Urspruenglich ({original_range[0]}-{original_range[1]}nm)\n{original_data["hex_color"]}')
         ax[0].set_xticks([])
         ax[0].set_yticks([])
         
-        # 新波长范围的颜色
+        # Neuer Wellenlaengenbereich Farbe
         new_rgb = np.clip(new_data['rgb_gamma'], 0, 1)
         ax[1].add_patch(plt.Rectangle((0, 0), 1, 1, color=new_rgb))
-        ax[1].set_title(f'裁剪 ({new_range[0]}-{new_range[1]}nm)\n{new_data["hex_color"]}')
+        ax[1].set_title(f'Verkuerzt ({new_range[0]}-{new_range[1]}nm)\n{new_data["hex_color"]}')
         ax[1].set_xticks([])
         ax[1].set_yticks([])
         
-        plt.suptitle(f'样本 "{name}" 的颜色比较')
+        plt.suptitle(f'Probe "{name}" Farbvergleich')
         plt.tight_layout()
         
-        # 保存图表
-        plt.savefig(os.path.join(output_dir, f'{safe_name}_color.png'), dpi=150)
+        # Diagramm speichern
+        plt.savefig(os.path.join(output_dir, f'{safe_name}_farbe.png'), dpi=150)
         plt.close()
     
-    # 3. 创建汇总分析报告
+    # 3. Zusammenfassenden Analysebericht erstellen
     create_summary_report(results, output_dir, original_range, new_range)
     
-    print(f"结果图表已保存至 {output_dir}")
+    print(f"Ergebnisdiagramme gespeichert in {output_dir}")
 
 def create_summary_report(results, output_dir, original_range, new_range):
-    """创建汇总分析报告"""
+    """Erstellt zusammenfassenden Analysebericht"""
     if not results:
+        print("Keine Ergebnisse fuer die Generierung des Berichts verfuegbar")
         return
     
-    # 计算所有样本的平均差异
+    # 计算所有Sample的平均差异
     all_xy_diffs = []
     all_xyz_diffs = []
     all_rgb_diffs = []
@@ -490,20 +413,20 @@ def create_summary_report(results, output_dir, original_range, new_range):
     
     # 创建报告文件
     with open(os.path.join(output_dir, 'summary_report.txt'), 'w', encoding='utf-8') as f:
-        f.write(f"波长范围比较分析报告\n")
-        f.write(f"======================\n\n")
-        f.write(f"原始波长范围: {original_range[0]}-{original_range[1]}nm\n")
-        f.write(f"裁剪波长范围: {new_range[0]}-{new_range[1]}nm\n\n")
-        f.write(f"分析样本数量: {len(results)}\n\n")
+        f.write(f"Wavelength Range Comparison Analysis Report\n")
+        f.write(f"==============================================\n\n")
+        f.write(f"Original Wavelength Range: {original_range[0]}-{original_range[1]}nm\n")
+        f.write(f"Cropped Wavelength Range: {new_range[0]}-{new_range[1]}nm\n\n")
+        f.write(f"Analysis Sample Count: {len(results)}\n\n")
         
-        f.write(f"平均差异分析:\n")
-        f.write(f"  XYZ平均差异: ({avg_xyz_diff[0]:.4f}, {avg_xyz_diff[1]:.4f}, {avg_xyz_diff[2]:.4f})\n")
-        f.write(f"  xy平均差异: ({avg_xy_diff[0]:.4f}, {avg_xy_diff[1]:.4f})\n")
-        f.write(f"  sRGB平均差异: ({avg_rgb_diff[0]:.4f}, {avg_rgb_diff[1]:.4f}, {avg_rgb_diff[2]:.4f})\n")
-        f.write(f"  平均CIE76色差(ΔE): {avg_delta_e:.4f}\n\n")
+        f.write(f"Average Difference Analysis:\n")
+        f.write(f"  XYZ Average Difference: ({avg_xyz_diff[0]:.4f}, {avg_xyz_diff[1]:.4f}, {avg_xyz_diff[2]:.4f})\n")
+        f.write(f"  xy Average Difference: ({avg_xy_diff[0]:.4f}, {avg_xy_diff[1]:.4f})\n")
+        f.write(f"  sRGB Average Difference: ({avg_rgb_diff[0]:.4f}, {avg_rgb_diff[1]:.4f}, {avg_rgb_diff[2]:.4f})\n")
+        f.write(f"   Average CIE76 Color Difference (ΔE): {avg_delta_e:.4f}\n\n")
         
-        # 输出每个样本的详细信息
-        f.write(f"各样本详细分析:\n")
+        # 输出每个Sample的详细信息
+        f.write(f"Individual Sample Analysis:\n")
         f.write(f"----------------\n\n")
         
         for name, result in results.items():
@@ -515,36 +438,36 @@ def create_summary_report(results, output_dir, original_range, new_range):
             xy_diff = np.abs(original_data['xy'] - new_data['xy'])
             rgb_diff = np.abs(original_data['rgb_gamma'] - new_data['rgb_gamma'])
             
-            f.write(f"样本: {name}\n")
-            f.write(f"  原始波长范围 ({original_range[0]}-{original_range[1]}nm):\n")
+            f.write(f"Sample: {name}\n")
+            f.write(f"   Original Wavelength Range ({original_range[0]}-{original_range[1]}nm):\n")
             f.write(f"    XYZ: ({original_data['xyz'][0]:.4f}, {original_data['xyz'][1]:.4f}, {original_data['xyz'][2]:.4f})\n")
             f.write(f"    xy: ({original_data['xy'][0]:.4f}, {original_data['xy'][1]:.4f})\n")
             f.write(f"    sRGB: ({original_data['rgb_gamma'][0]:.4f}, {original_data['rgb_gamma'][1]:.4f}, {original_data['rgb_gamma'][2]:.4f})\n")
             f.write(f"    Hex: {original_data['hex_color']}\n\n")
             
-            f.write(f"  裁剪波长范围 ({new_range[0]}-{new_range[1]}nm):\n")
+            f.write(f"   Cropped Wavelength Range ({new_range[0]}-{new_range[1]}nm):\n")
             f.write(f"    XYZ: ({new_data['xyz'][0]:.4f}, {new_data['xyz'][1]:.4f}, {new_data['xyz'][2]:.4f})\n")
             f.write(f"    xy: ({new_data['xy'][0]:.4f}, {new_data['xy'][1]:.4f})\n")
             f.write(f"    sRGB: ({new_data['rgb_gamma'][0]:.4f}, {new_data['rgb_gamma'][1]:.4f}, {new_data['rgb_gamma'][2]:.4f})\n")
             f.write(f"    Hex: {new_data['hex_color']}\n\n")
             
-            f.write(f"  差异分析:\n")
-            f.write(f"    XYZ差异: ({xyz_diff[0]:.4f}, {xyz_diff[1]:.4f}, {xyz_diff[2]:.4f})\n")
-            f.write(f"    xy差异: ({xy_diff[0]:.4f}, {xy_diff[1]:.4f})\n")
-            f.write(f"    sRGB差异: ({rgb_diff[0]:.4f}, {rgb_diff[1]:.4f}, {rgb_diff[2]:.4f})\n")
-            f.write(f"    CIE76色差(ΔE): {result['delta_e']:.4f}\n\n")
+            f.write(f"   Difference Analysis:\n")
+            f.write(f"    XYZ Difference: ({xyz_diff[0]:.4f}, {xyz_diff[1]:.4f}, {xyz_diff[2]:.4f})\n")
+            f.write(f"    xy Difference: ({xy_diff[0]:.4f}, {xy_diff[1]:.4f})\n")
+            f.write(f"    sRGB Difference: ({rgb_diff[0]:.4f}, {rgb_diff[1]:.4f}, {rgb_diff[2]:.4f})\n")
+            f.write(f"    CIE76 Color Difference (ΔE): {result['delta_e']:.4f}\n\n")
             
-            # 计算相对误差百分比
+            # 计算Relative Error Percentage
             xyz_rel_diff = 100 * xyz_diff / (np.abs(original_data['xyz']) + 1e-10)
             xy_rel_diff = 100 * xy_diff / (np.abs(original_data['xy']) + 1e-10)
             rgb_rel_diff = 100 * rgb_diff / (np.abs(original_data['rgb_gamma']) + 1e-10)
             
-            f.write(f"  相对误差百分比:\n")
-            f.write(f"    XYZ相对误差: ({xyz_rel_diff[0]:.2f}%, {xyz_rel_diff[1]:.2f}%, {xyz_rel_diff[2]:.2f}%)\n")
-            f.write(f"    xy相对误差: ({xy_rel_diff[0]:.2f}%, {xy_rel_diff[1]:.2f}%)\n")
-            f.write(f"    sRGB相对误差: ({rgb_rel_diff[0]:.2f}%, {rgb_rel_diff[1]:.2f}%, {rgb_rel_diff[2]:.2f}%)\n\n")
+            f.write(f"   Relative Error Percentage:\n")
+            f.write(f"    XYZ Relative Error: ({xyz_rel_diff[0]:.2f}%, {xyz_rel_diff[1]:.2f}%, {xyz_rel_diff[2]:.2f}%)\n")
+            f.write(f"    xy Relative Error: ({xy_rel_diff[0]:.2f}%, {xy_rel_diff[1]:.2f}%)\n")
+            f.write(f"    sRGB Relative Error: ({rgb_rel_diff[0]:.2f}%, {rgb_rel_diff[1]:.2f}%, {rgb_rel_diff[2]:.2f}%)\n\n")
             
-            # 可感知颜色差异分析
+            # 可感知颜色Difference Analysis
             original_hsv = rgb_to_hsv(np.clip(original_data['rgb_gamma'], 0, 1))
             new_hsv = rgb_to_hsv(np.clip(new_data['rgb_gamma'], 0, 1))
             hsv_diff = np.abs(original_hsv - new_hsv)
@@ -552,19 +475,20 @@ def create_summary_report(results, output_dir, original_range, new_range):
             if hsv_diff[0] > 0.5:
                 hsv_diff[0] = 1 - hsv_diff[0]
             
-            f.write(f"  HSV感知差异:\n")
-            f.write(f"    色调差异: {hsv_diff[0]:.4f} (×360° = {hsv_diff[0]*360:.1f}°)\n")
-            f.write(f"    饱和度差异: {hsv_diff[1]:.4f}\n")
-            f.write(f"    明度差异: {hsv_diff[2]:.4f}\n\n")
+            f.write(f"  HSV Perceptual Difference:\n")
+            f.write(f"     Hue Difference: {hsv_diff[0]:.4f} (×360° = {hsv_diff[0]*360:.1f}°)\n")
+            f.write(f"     Saturation Difference: {hsv_diff[1]:.4f}\n")
+            f.write(f"     Brightness Difference: {hsv_diff[2]:.4f}\n\n")
             
             f.write(f"----------------\n\n")
     
-    # 创建汇总图表
+    # Create summary charts
     create_summary_charts(results, output_dir, original_range, new_range)
 
 def create_summary_charts(results, output_dir, original_range, new_range):
-    """创建汇总图表"""
+    """Create summary charts"""
     if not results:
+        print("No results available for plotting")
         return
     
     # 1. xy色度图比较
@@ -582,23 +506,23 @@ def create_summary_charts(results, output_dir, original_range, new_range):
         original_x, original_y = result['original']['xy']
         new_x, new_y = result['new']['xy']
         
-        # 绘制原始点和新点，并用线连接
+        # Urspruengliche und neue Punkte zeichnen und verbinden
         plt.plot(original_x, original_y, 'bo', markersize=8, alpha=0.7)
         plt.plot(new_x, new_y, 'ro', markersize=8, alpha=0.7)
         plt.plot([original_x, new_x], [original_y, new_y], 'k-', alpha=0.3)
         
-        # 标记样本名称
+        # Probennamen beschriften
         plt.text(original_x+0.005, original_y+0.005, name, fontsize=8)
     
     plt.xlabel('x')
     plt.ylabel('y')
-    plt.title('CIE xy色度图上的颜色坐标比较')
+    plt.title('CIE xy Farbraum-Diagramm Farbkoordinaten-Vergleich')
     plt.grid(True, alpha=0.3)
     plt.axis([0, 0.8, 0, 0.9])
     
-    # 添加图例
-    plt.plot([], [], 'bo', markersize=8, label=f'原始 ({original_range[0]}-{original_range[1]}nm)')
-    plt.plot([], [], 'ro', markersize=8, label=f'裁剪 ({new_range[0]}-{new_range[1]}nm)')
+    # Legende hinzufuegen
+    plt.plot([], [], 'bo', markersize=8, label=f'Urspruenglich ({original_range[0]}-{original_range[1]}nm)')
+    plt.plot([], [], 'ro', markersize=8, label=f'Verkuerzt ({new_range[0]}-{new_range[1]}nm)')
     plt.legend()
     
     plt.savefig(os.path.join(output_dir, 'xy_comparison.png'), dpi=150)
@@ -626,41 +550,41 @@ def create_summary_charts(results, output_dir, original_range, new_range):
                  f'{val:.4f}', 
                  ha='center')
     
-    plt.title('RGB颜色分量平均差异')
-    plt.ylabel('绝对差异')
+    plt.title('Durchschnittliche RGB-Farbkomponenten-Differenz')
+    plt.ylabel('Absolute Differenz')
     plt.grid(axis='y', alpha=0.3)
     plt.savefig(os.path.join(output_dir, 'rgb_diff.png'), dpi=150)
     plt.close()
     
-    # 3. CIE76色差柱状图
+    # 3. CIE76 Farbdifferenz Balkendiagramm
     plt.figure(figsize=(12, 8))
     
-    # 获取样本名称和对应的色差值
+    # Probennamen und entsprechende Farbdifferenzwerte abrufen
     sample_names = list(results.keys())
     delta_e_values = [results[name]['delta_e'] for name in sample_names]
     
-    # 按照色差值降序排序
+    # Nach Farbdifferenzwerten absteigend sortieren
     sorted_indices = np.argsort(delta_e_values)[::-1]
     sorted_names = [sample_names[i] for i in sorted_indices]
     sorted_values = [delta_e_values[i] for i in sorted_indices]
     
-    # 如果样本太多，只显示前20个
+    # Falls zu viele Proben, nur die ersten 20 anzeigen
     if len(sorted_names) > 20:
         sorted_names = sorted_names[:20]
         sorted_values = sorted_values[:20]
     
-    # 绘制柱状图
+    # Balkendiagramm zeichnen
     bars = plt.bar(range(len(sorted_names)), sorted_values, color='purple', alpha=0.7)
     
-    # 添加数值标签
-    for i, (bar, val) in enumerate(zip(bars, sorted_values)):
-        plt.text(bar.get_x() + bar.get_width()/2, 
-                 val + 0.02,
-                 f'{val:.4f}', 
-                 ha='center', va='bottom', rotation=90 if len(sorted_names) > 10 else 0)
+    # Zahlenwerte als Beschriftung entfernt
+    # for i, (bar, val) in enumerate(zip(bars, sorted_values)):
+    #     plt.text(bar.get_x() + bar.get_width()/2, 
+    #              val + 0.02,
+    #              f'{val:.4f}', 
+    #              ha='center', va='bottom', rotation=90 if len(sorted_names) > 10 else 0)
     
     plt.xticks(range(len(sorted_names)), sorted_names, rotation=90 if len(sorted_names) > 10 else 45)
-    plt.title('CIE76 Color Difference (ΔE) Comparison')
+    plt.title('CIE76 Farbdifferenz (ΔE) Vergleich')
     plt.ylabel('ΔE')
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()
@@ -673,14 +597,14 @@ def generate_german_summary(results, original_range, new_range):
     
     Parameters:
         results: 比较结果字典
-        original_range: 原始波长范围
-        new_range: 新波长范围
+        original_range: OriginalWavelength范围
+        new_range: 新Wavelength范围
     """
     if not results:
-        print("没有可用于生成德语总结的结果")
+        print("Keine Ergebnisse fuer die Generierung der deutschen Zusammenfassung verfuegbar")
         return
     
-    # 创建保存摘要的目录
+    # Verzeichnis fuer die Speicherung der Zusammenfassung erstellen
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "comparison_results")
     os.makedirs(output_dir, exist_ok=True)
     
@@ -716,10 +640,10 @@ def generate_german_summary(results, original_range, new_range):
     avg_lab_diff = np.mean(all_lab_diffs, axis=0)
     avg_delta_e = np.mean(all_delta_e)
     
-    # 找出Delta E最大的几个样本
+    # 找出Delta E最大的几个Sample
     delta_e_values = [(name, result['delta_e']) for name, result in results.items()]
     sorted_delta_e = sorted(delta_e_values, key=lambda x: x[1], reverse=True)
-    worst_samples = sorted_delta_e[:5]  # 最差的5个样本
+    worst_samples = sorted_delta_e[:5]  # 最差的5个Sample
     
     # 生成德语总结
     with open(os.path.join(output_dir, 'farbfehler_zusammenfassung.txt'), 'w', encoding='utf-8') as f:
@@ -757,12 +681,12 @@ def generate_german_summary(results, original_range, new_range):
         for i, (name, delta_e) in enumerate(worst_samples):
             f.write(f"{i+1}. Probe \"{name}\": ΔE = {delta_e:.6f}\n")
             
-            # 获取样本详细数据
+            # 获取Sample详细数据
             sample_data = results[name]
             original_data = sample_data['original']
             new_data = sample_data['new']
             
-            # 计算相对误差百分比
+            # 计算Relative Error Percentage
             xyz_diff = np.abs(original_data['xyz'] - new_data['xyz'])
             xyz_rel_diff = 100 * xyz_diff / (np.abs(original_data['xyz']) + 1e-10)
             
@@ -773,14 +697,14 @@ def generate_german_summary(results, original_range, new_range):
         f.write("Da die durchschnittliche Delta-E-Differenz von {:.6f} unter dem wahrnehmbaren Schwellenwert von 1,0 liegt, kann der gekürzete Wellenlängenbereich (400nm-750nm) für die meisten praktischen Anwendungen als ausreichend betrachtet werden. Die resultierenden Farbunterschiede sind für das menschliche Auge kaum wahrnehmbar.\n".format(avg_delta_e))
         f.write("Für hochpräzise Farbmessungen sollte jedoch der vollständige Wellenlängenbereich (380nm-780nm) verwendet werden, um maximale Genauigkeit zu gewährleisten.\n")
     
-    print(f"德语总结已保存至: {os.path.join(output_dir, 'farbfehler_zusammenfassung.txt')}")
+    print(f"Deutsche Zusammenfassung gespeichert in: {os.path.join(output_dir, 'farbfehler_zusammenfassung.txt')}")
 
 def main():
-    # 设置波长范围
-    original_range = (380, 780)  # 原始波长范围
-    new_range = (400, 750)       # 新波长范围
+    # Wellenlaengenbereiche festlegen
+    original_range = (380, 780)  # Urspruenglicher Wellenlaengenbereich
+    new_range = (400, 750)       # Neuer Wellenlaengenbereich
     
-    # 读取反射率数据
+    # Reflektanzdaten lesen
     reflectance_file = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         'sample_data', 
@@ -790,19 +714,19 @@ def main():
     samples = read_reflectance_data(reflectance_file)
     
     if not samples:
-        print("没有找到有效的样本数据")
+        print("Keine gueltigen Probendaten gefunden")
         return
     
-    # 比较不同波长范围的颜色计算结果
+    # Farbberechnungsergebnisse verschiedener Wellenlaengenbereiche vergleichen
     results = compare_wavelength_ranges(samples, original_range, new_range)
     
-    # 绘制结果图表
+    # Ergebnisdiagramme zeichnen
     plot_results(samples, results, original_range, new_range)
     
-    # 生成德语总结
+    # Deutsche Zusammenfassung generieren
     generate_german_summary(results, original_range, new_range)
     
-    print("\n分析完成！")
+    print("\nAnalyse abgeschlossen!")
 
 if __name__ == "__main__":
     main() 

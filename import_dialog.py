@@ -33,13 +33,13 @@ class ImportDialog(QDialog):
         self.measurement_files = []
         self.selected_measurements = []
         
-        # 添加会话级变量记住不同类型文件的最后使用目录
+        # Add session-level variables to remember last used directories for different file types
         self.last_directory = self.get_import_directory()
         self.black_reference_directory = self.get_directory('black_reference_directory') or self.last_directory
         self.white_reference_directory = self.get_directory('white_reference_directory') or self.last_directory
         self.measurement_directory = self.get_directory('measurement_directory') or self.last_directory
         
-        # 添加会话内使用的最后文件夹路径变量
+        # Add session-internal last folder path variables
         self.current_session_directory = self.last_directory
         
         # Initialize data model
@@ -63,10 +63,10 @@ class ImportDialog(QDialog):
         # layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
         
-        # 设置画布自适应尺寸策略
+        # Set canvas adaptive size policy
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
-        # 确保view_spec可以随窗口大小变化而调整
+        # Ensure view_spec can adjust with window size changes
         self.ui.view_spec.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Configure chart initial layout - further increase bottom margins
@@ -89,13 +89,13 @@ class ImportDialog(QDialog):
         # Add buttons to the grid layout
         self.ui.gridLayout_3.addWidget(self.select_buttons_widget, 11, 1, 1, 1)
         
-        # 重新调整按钮位置
-        # 移除原有的按钮
+        # Readjust button positions
+        # Remove original buttons
         self.ui.gridLayout_3.removeWidget(self.ui.pushButton_black)
         self.ui.gridLayout_3.removeWidget(self.ui.pushButton_white)
         self.ui.gridLayout_3.removeWidget(self.ui.pushButton_clear_ref)
         
-        # 重新添加按钮，按照新的顺序
+        # Re-add buttons in new order
         self.ui.gridLayout_3.addWidget(self.ui.pushButton_black, 7, 0, 1, 1)
         self.ui.gridLayout_3.addWidget(self.ui.pushButton_white, 8, 0, 1, 1)
         
@@ -103,7 +103,7 @@ class ImportDialog(QDialog):
         self.swap_reference_button = QPushButton("Swap Reference Data")
         self.ui.gridLayout_3.addWidget(self.swap_reference_button, 9, 0, 1, 1)
         
-        # 添加Clear按钮在最下面
+        # Add Clear button at the bottom
         self.ui.gridLayout_3.addWidget(self.ui.pushButton_clear_ref, 10, 0, 1, 1)
         
         # Rename OK button to Import Selected Data
@@ -219,13 +219,13 @@ class ImportDialog(QDialog):
         """
         Select the black reference file.
         """
-        # 优先使用当前会话目录，其次用黑参考记录的目录，最后用通用导入目录
+        # Prioritize current session directory, then black reference recorded directory, finally general import directory
         start_dir = self.current_session_directory or self.black_reference_directory or self.get_import_directory()
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Black Reference File", 
             start_dir,
-            "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
+            "CSV Files (*.csv);;All Files (*.*)"
         )
         if file_path:
             print(f"Selected black reference: {file_path}")
@@ -241,15 +241,15 @@ class ImportDialog(QDialog):
                 QMessageBox.warning(self, "Error", f"Failed to load black reference file: {os.path.basename(file_path)}")
                 self.black_reference_path = None # Reset path if loading failed
             
-            # 记住黑参考文件目录
+            # Remember black reference directory
             directory = os.path.dirname(file_path)
             self.black_reference_directory = directory
             self.save_directory('black_reference_directory', directory)
             
-            # 更新当前会话目录
+            # Update current session directory
             self.current_session_directory = directory
             
-            # 同时更新通用导入目录
+            # Also update general import directory
             self.last_directory = directory
             self.save_import_directory(directory)
 
@@ -257,13 +257,13 @@ class ImportDialog(QDialog):
         """
         Select the white reference file.
         """
-        # 优先使用当前会话目录，其次用白参考记录的目录，最后用通用导入目录
+        # Prioritize current session directory, then white reference recorded directory, finally general import directory
         start_dir = self.current_session_directory or self.white_reference_directory or self.get_import_directory()
         
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select White Reference File", 
             start_dir,
-            "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
+            "CSV Files (*.csv);;All Files (*.*)"
         )
         if file_path:
             print(f"Selected white reference: {file_path}")
@@ -279,15 +279,15 @@ class ImportDialog(QDialog):
                 QMessageBox.warning(self, "Error", f"Failed to load white reference file: {os.path.basename(file_path)}")
                 self.white_reference_path = None # Reset path if loading failed
             
-            # 记住白参考文件目录
+            # Remember white reference directory
             directory = os.path.dirname(file_path)
             self.white_reference_directory = directory
             self.save_directory('white_reference_directory', directory)
             
-            # 更新当前会话目录
+            # Update current session directory
             self.current_session_directory = directory
             
-            # 同时更新通用导入目录
+            # Also update general import directory
             self.last_directory = directory
             self.save_import_directory(directory)
 
@@ -307,13 +307,13 @@ class ImportDialog(QDialog):
         """
         Select measurement data files.
         """
-        # 优先使用当前会话目录，其次用测量文件记录的目录，最后用通用导入目录
+        # Prioritize current session directory, then measurement file recorded directory, finally general import directory
         start_dir = self.current_session_directory or self.measurement_directory or self.get_import_directory()
         
         file_paths, _ = QFileDialog.getOpenFileNames(
             self, "Select Measurement Files", 
             start_dir,
-            "All Supported Files (*.csv *.txt *.mat);;CSV Files (*.csv);;Text Files (*.txt);;MATLAB Files (*.mat);;All Files (*.*)"
+            "CSV Files (*.csv);;All Files (*.*)"
         )
         if file_paths:
             print(f"Selected measurements: {file_paths}")
@@ -334,16 +334,16 @@ class ImportDialog(QDialog):
             if failed_files:
                 QMessageBox.warning(self, "Warning", f"The following files could not be loaded or parsed:\n\n" + "\n".join(failed_files))
             
-            # 记住测量文件目录
+            # Remember measurement file directory
             if self.measurement_files:
                 directory = os.path.dirname(self.measurement_files[0])
                 self.measurement_directory = directory
                 self.save_directory('measurement_directory', directory)
                 
-                # 更新当前会话目录
+                # Update current session directory
                 self.current_session_directory = directory
                 
-                # 同时更新通用导入目录
+                # Also update general import directory
                 self.last_directory = directory
                 self.save_import_directory(directory)
 
@@ -478,15 +478,25 @@ class ImportDialog(QDialog):
 
     def load_data_file(self, file_path):
         """
-        Load data file, handle file type appropriately.
+        Load CSV data file only.
         """
         try:
-            # Choose different load method based on file extension
+            # Only support CSV files
             ext = os.path.splitext(file_path)[1].lower()
             
-            # Handle CSV file (specifically for example format)
-            if ext == '.csv':
-                print(f"Loading CSV file: {file_path}")
+            if ext != '.csv':
+                QMessageBox.warning(self, "Import Error", f"Only CSV files are supported. Selected file: {os.path.basename(file_path)}")
+                return None
+            
+            print(f"Loading CSV file: {file_path}")
+            
+            # Method 1: Try to find specific header format
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            
+            # Find start of data section
+            data_start_index = -1
+            for i, line in enumerate(lines):
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     lines = f.readlines()
                 
@@ -515,18 +525,16 @@ class ImportDialog(QDialog):
                     
                     if wavelengths and values:
                         print(f"Extracted {len(wavelengths)} data points")
-                        # Ensure using numpy arrays
                         return {
                             'wavelengths': np.array(wavelengths),
                             'values': np.array(values)
                         }
                 
-                # If above parsing fails, try regular CSV parsing
+            # Method 2: Try regular CSV parsing with pandas
                 try:
                     data = pd.read_csv(file_path)
                     if len(data.columns) >= 2:
                         print(f"Fallback to pandas: {data.shape[0]} rows, {data.shape[1]} columns")
-                        # Ensure returning numpy arrays
                         return {
                             'wavelengths': np.array(data.iloc[:, 0].values),
                             'values': np.array(data.iloc[:, 1].values)
@@ -534,77 +542,44 @@ class ImportDialog(QDialog):
                 except Exception as ex:
                     print(f"Pandas CSV read error: {ex}")
                 
-                return None
-                
-            # Handle TXT file
-            elif ext == '.txt':
-                print(f"Loading TXT file: {file_path}")
-                try:
-                    # Try using numpy's loadtxt
-                    data = np.loadtxt(file_path)
-                    if data.shape[1] >= 2:  # Ensure at least two columns
-                        return {
-                            'wavelengths': np.array(data[:, 0]),
-                            'values': np.array(data[:, 1])
-                        }
-                except Exception as ex:
-                    print(f"Numpy loadtxt error: {ex}")
-                    
-                # Try manual parsing
+            # Method 3: Try manual CSV parsing
                 try:
                     wavelengths = []
                     values = []
                     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        for line in f:
-                            try:
-                                # Try different delimiters
-                                if ',' in line:
-                                    parts = line.strip().split(',')
-                                else:
-                                    parts = line.strip().split()
-                                
-                                if len(parts) >= 2:
+                        for line_num, line in enumerate(f):
+                            line = line.strip()
+                            if not line or line.startswith('#'):  # Skip empty lines and comments
+                                continue
+                            
+                            parts = line.split(',')
+                            if len(parts) >= 2:
+                                try:
                                     wavelength = float(parts[0])
                                     value = float(parts[1])
                                     wavelengths.append(wavelength)
                                     values.append(value)
-                            except (ValueError, IndexError):
-                                continue
+                                except ValueError:
+                                    # Skip header or invalid lines
+                                    continue
                     
                     if wavelengths and values:
+                        print(f"Manual CSV parsing: Extracted {len(wavelengths)} data points")
                         return {
                             'wavelengths': np.array(wavelengths),
                             'values': np.array(values)
                         }
                 except Exception as ex:
-                    print(f"Manual parsing error: {ex}")
+                    print(f"Manual CSV parsing error: {ex}")
                 
-                return None
-                
-            # Handle other file types
-            else:
-                # Try using pandas to read
-                try:
-                    data = pd.read_csv(file_path, sep=None, engine='python')
-                    if len(data.columns) >= 2:
-                        return {
-                            'wavelengths': np.array(data.iloc[:, 0].values),
-                            'values': np.array(data.iloc[:, 1].values)
-                        }
-                except Exception as ex:
-                    print(f"Unknown file type, pandas read error: {ex}")
-                
-                return None
-                
+            QMessageBox.warning(self, "Import Error", f"Could not parse CSV file: {os.path.basename(file_path)}. Please ensure it contains wavelength and measurement data.")
             return None
+                
         except FileNotFoundError:
             QMessageBox.warning(self, "Import Error", f"File not found: {file_path}")
             return None
         except pd.errors.ParserError:
-            QMessageBox.warning(self, "Import Error", f"Error parsing file: {file_path}. Ensure it is a valid CSV/TXT file with numeric data.")
-            return None
-        except ImportError:
-            QMessageBox.critical(self, "Import Error", "Optional dependency 'scipy' not found. Cannot load .mat files.")
+            QMessageBox.warning(self, "Import Error", f"Error parsing CSV file: {file_path}. Please ensure it is a valid CSV file with numeric data.")
             return None
         except Exception as e:
             QMessageBox.critical(self, "Import Error", f"An unexpected error occurred while loading {file_path}: {e}")
@@ -668,27 +643,27 @@ class ImportDialog(QDialog):
         super().accept()
 
     def get_settings_file_path(self):
-        """获取设置文件的绝对路径（使用用户数据目录）"""
-        # 获取用户数据目录
+        """Get absolute path of settings file (using user data directory)"""
+        # Get user data directory
         if sys.platform == 'darwin':  # macOS
             user_data_dir = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 'Aleksameter')
         elif sys.platform == 'win32':  # Windows
             user_data_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'Aleksameter')
-        else:  # Linux和其他平台
+        else:  # Linux and other platforms
             user_data_dir = os.path.join(os.path.expanduser('~'), '.aleksameter')
         
-        # 确保目录存在
+        # Ensure directory exists
         if not os.path.exists(user_data_dir):
             os.makedirs(user_data_dir)
         
-        # 设置文件完整路径
+        # Complete path of settings file
         settings_file = os.path.join(user_data_dir, "app_settings.json")
-        print(f"导入对话框设置文件路径: {settings_file}")
+        print(f"Import dialog settings file path: {settings_file}")
         return settings_file
 
     def get_import_directory(self):
         """Get import directory, use cached if available, otherwise return default directory"""
-        # 优先使用会话中记录的最后目录
+        # Prioritize last directory recorded in session
         if hasattr(self, 'last_directory') and self.last_directory:
             return self.last_directory
             
@@ -702,17 +677,17 @@ class ImportDialog(QDialog):
                     if 'import' in settings and 'default_directory' in settings['import']:
                         return settings['import']['default_directory']
         except Exception as e:
-            print(f"读取导入目录设置出错: {e}")
+            print(f"Error reading import directory settings: {e}")
         
         # Default directory
         return os.path.expanduser('~')
     
     def save_import_directory(self, directory):
         """Save import directory to settings and update session variable"""
-        # 更新会话变量
+        # Update session variable
         self.last_directory = directory
         
-        # 保存到设置文件
+        # Save to settings file
         settings_file = self.get_settings_file_path()
         try:
             settings = {}
@@ -726,7 +701,7 @@ class ImportDialog(QDialog):
             
             settings['import']['default_directory'] = directory
             
-            # 确保目录存在
+            # Ensure directory exists
             settings_dir = os.path.dirname(settings_file)
             if not os.path.exists(settings_dir):
                 os.makedirs(settings_dir)
@@ -734,7 +709,7 @@ class ImportDialog(QDialog):
             with open(settings_file, 'w') as f:
                 json.dump(settings, f, indent=4)
         except Exception as e:
-            print(f"保存导入目录设置出错: {e}")
+            print(f"Error saving import directory settings: {e}")
 
     def get_selected_data(self):
         """
@@ -758,23 +733,23 @@ class ImportDialog(QDialog):
 
     def _on_resize(self, event):
         """Handle chart size change event"""
-        # 使用tight_layout替代固定调整，更好地适应尺寸变化
+        # Use tight_layout instead of fixed adjustment, better adapts to size changes
         self.figure.tight_layout(pad=0.4)
         
         # Redraw chart
         self.canvas.draw_idle()
         
     def resizeEvent(self, event):
-        """处理对话框大小变化事件"""
-        # 调用父类的resizeEvent
+        """Handle dialog resize event"""
+        # Call parent class resizeEvent
         super().resizeEvent(event)
         
-        # 确保图表更新
+        # Ensure chart updates
         if hasattr(self, 'canvas'):
             self.canvas.draw_idle()
 
     def get_directory(self, key):
-        """获取特定类型文件的目录，如果不存在则返回None"""
+        """Get directory for specific file type, return None if doesn't exist"""
         settings_file = self.get_settings_file_path()
         try:
             if os.path.exists(settings_file):
@@ -784,11 +759,11 @@ class ImportDialog(QDialog):
                     if 'import' in settings and key in settings['import']:
                         return settings['import'][key]
         except Exception as e:
-            print(f"获取目录设置出错: {e}")
+            print(f"Error getting directory settings: {e}")
         return None
     
     def save_directory(self, key, directory):
-        """保存特定类型文件的目录到设置文件"""
+        """Save directory for specific file type to settings file"""
         settings_file = self.get_settings_file_path()
         try:
             settings = {}
@@ -802,7 +777,7 @@ class ImportDialog(QDialog):
             
             settings['import'][key] = directory
             
-            # 确保目录存在
+            # Ensure directory exists
             settings_dir = os.path.dirname(settings_file)
             if not os.path.exists(settings_dir):
                 os.makedirs(settings_dir)
@@ -810,4 +785,4 @@ class ImportDialog(QDialog):
             with open(settings_file, 'w') as f:
                 json.dump(settings, f, indent=4)
         except Exception as e:
-            print(f"保存目录设置出错: {e}")
+            print(f"Error saving directory settings: {e}")
