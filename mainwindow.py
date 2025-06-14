@@ -44,6 +44,15 @@ class MainWindow(QMainWindow):
         # Set window title
         self.setWindowTitle("Aleksameter App")
         
+        # Set window icon
+        try:
+            icon_path = self.get_resource_path("app_icon.png")
+            if os.path.exists(icon_path):
+                icon = QIcon(icon_path)
+                self.setWindowIcon(icon)
+        except Exception as e:
+            print(f"Could not load window icon: {str(e)}")
+        
         # Set initial window size
         self.resize(833, 660)  # Set to 833x660 size
         
