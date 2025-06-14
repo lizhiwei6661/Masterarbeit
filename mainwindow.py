@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QAction, QColor, QPixmap, QIcon, QClipboard, QScreen
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.patches as patches
 import scipy.interpolate as interp
@@ -2033,10 +2033,6 @@ class MainWindow(QMainWindow):
                     
                     # Draw gamut boundary and add labels
                     ax.plot(x_points, y_points, 'k-', linewidth=1.5, label=gamut)
-                
-                # Draw illuminantpoints
-                    ax.plot(x_points, y_points, '-', color='black', linewidth=1.2, 
-                           zorder=30, label=gamut)
                 
                 # Draw illuminantpoints
                 illuminant = self.settings['general']['illuminant']

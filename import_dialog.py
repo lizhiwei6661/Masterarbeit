@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QStringListModel
 from PySide6.QtGui import QStandardItemModel, QStandardItem
-from matplotlib.backends.backend_qt5agg import (
+from matplotlib.backends.backend_qtagg import (
     NavigationToolbar2QT as NavigationToolbar,
     FigureCanvasQTAgg as FigureCanvas,
 )

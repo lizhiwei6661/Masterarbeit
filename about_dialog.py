@@ -1,4 +1,5 @@
 import sys
+import os
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton, 
     QHBoxLayout, QWidget, QTextBrowser
@@ -19,7 +20,9 @@ class AboutDialog(QDialog):
         # 添加应用图标
         icon_label = QLabel()
         try:
-            pixmap = QPixmap("app_icon.png")
+            # 使用get_resource_path获取正确的图标路径
+            icon_path = self.get_resource_path("app_icon.png")
+            pixmap = QPixmap(icon_path)
             if not pixmap.isNull():
                 # 缩放图标到合适大小
                 scaled_pixmap = pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -55,7 +58,8 @@ class AboutDialog(QDialog):
         Developed as part of a Master's thesis project to migrate from MATLAB to Python.
         </p>
         <p style='text-align: center;'>
-        Authors: Zhiwei Li and Marina Leontopoulos
+        Original Author & Supervisor: Marina Leontopoulos<br>
+        Software Author: Zhiwei Li
         </p>
         <p style='text-align: center;'>
         &copy; 2025 All rights reserved.
@@ -73,4 +77,22 @@ class AboutDialog(QDialog):
         
         button_container = QWidget()
         button_container.setLayout(button_layout)
-        layout.addWidget(button_container) 
+        layout.addWidget(button_container)
+    
+    def get_resource_path(self, relative_path):
+        """
+        Get absolute path of resource file, suitable for development environment and PyInstaller packaging environment
+        
+        Parameters:
+            relative_path: Relative path
+            
+        Returns:
+            Absolute path
+        """
+        try:
+            # PyInstaller creates temporary folder, stores path in _MEIPASS
+            base_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+            return os.path.join(base_path, relative_path)
+        except Exception as e:
+            print(f"Error getting resource path: {str(e)}")
+            return relative_path 
